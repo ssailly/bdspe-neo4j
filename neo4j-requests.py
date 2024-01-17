@@ -53,7 +53,7 @@ class Neo4jRequest:
 			generation: toInteger(row.generation),
 			is_legendary: toInteger(row.is_legendary)
 		})
-  	'''
+		'''
 		i = 0
 		for t in types:
 			t_lowered = t.lower()
@@ -62,21 +62,21 @@ class Neo4jRequest:
 			r += f'''
 			MERGE ({var}:Type {{name: '{t}'}})
 			CREATE (p)-[:AGAINST {{value: toFloat(row.against_{t_lowered})}}]->({var})
-    	'''
+			'''
 		self.session.run(r)
-  
+	
 	def negative_filter(self):
 		'''
-  	Counts the number of Pokemon that are weak against Fire and strong against
-  	Water.
-  	'''
+		Counts the number of Pokemon that are weak against Fire and strong against
+		Water.
+		'''
 		
 		r = '''
-  	MATCH (p:Pokemon)-[r]->(m)
+		MATCH (p:Pokemon)-[r]->(m)
 		WHERE NOT (p)-[:AGAINST {value: 2}]->(:Type {name: 'Fire'})
 			AND NOT (p)-[:AGAINST {value: 0.5}]->(:Type {name: 'Water'})
 		RETURN count(distinct p)
-  	'''
+		'''
 		res = self.session.run(r)
 		print(res.single()[0])
 
