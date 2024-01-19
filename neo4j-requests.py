@@ -16,6 +16,7 @@ class Neo4jRequest:
 		'''
 		self.session.run('MATCH (n) DETACH DELETE n')
 
+	# TODO: fix Fighting type vs AGAINST_FIGHT relation
 	def import_data(self):
 		'''
 		Imports the data from pokemon.csv file into the database.
@@ -78,7 +79,37 @@ class Neo4jRequest:
 		RETURN count(distinct p)
 		'''
 		res = self.session.run(r)
-		print(res.single()[0])
+		print('1. Number of Pokemon weak against Fire and strong against Water: '
+					+ str(res.single()[0]))
+	
+	def optional_match(self):
+		'''
+		Get resistences of Psychic type Pokemon, apart from against Psychic.
+		'''
+
+		print('2. Psychic type Pokemon resistences:')
+		r = '''
+		MATCH (p:Pokemon {type1: 'psychic'})
+		OPTIONAL MATCH (p)-[r:AGAINST]->(t:Type)
+		WHERE t.name <> 'Psychic'
+				AND r.value IN [0.5, 0.25]
+		RETURN p.name, t.name, r.value
+		'''
+		res = self.session.run(r)
+		print('Pokemon\t\tType\t\tValue')
+		for r in res:
+			tab1 = '\t\t' if len(r[0]) < 8 else '\t'
+			tab2 = '\t\t' if (r[1] != None and len(r[1]) < 8) else '\t'
+			print(f'{r[0]}{tab1}{r[1]}' + (f'{tab2}{r[2]}' if r[1] != None else ''))
+
+	def run_all(self):
+		'''
+		Runs all the requests.
+		'''
+
+		self.negative_filter()
+		print()
+		self.optional_match()
 
 
 if __name__ == '__main__':
@@ -90,5 +121,5 @@ if __name__ == '__main__':
 	nrq = Neo4jRequest(uri, argv[0], argv[1])
 	nrq.clear()
 	nrq.import_data()
-	nrq.negative_filter()
+	nrq.run_all()
 	nrq.close()
