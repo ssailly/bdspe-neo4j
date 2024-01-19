@@ -205,8 +205,8 @@ class Neo4jRequest:
 		Get distinct pairs of Pokemon who have a common type, who both are immunized
 		against a type, and where either of one of them or their common type starts
 		with 'f' or 'g'.
-   	'''	
-  
+	 	'''	
+	
 		r = '''
 		MATCH path = (p1:Pokemon)-[:HAS_TYPE]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
 		WHERE p1 <> p2
@@ -231,6 +231,59 @@ class Neo4jRequest:
 					+ " type starts with 'f' or 'g':")
 		for r in res: print(f'{r[0]} - {r[1]} (type {r[2]})')
 
+	# TODO: check plans of post_union_processing(_variant)
+	def post_union_processing(self):
+		'''
+		Get the 10 heaviest and lightest Pokemon and their types.
+	 	'''
+		
+		r = '''
+		CALL {
+				MATCH (p:Pokemon)
+				WHERE p.weight_kg IS NOT NULL
+				RETURN p
+				ORDER BY p.weight_kg DESC
+				LIMIT 10
+			UNION
+				MATCH (p:Pokemon)
+				WHERE p.weight_kg IS NOT NULL
+				RETURN p
+				ORDER BY p.weight_kg ASC
+				LIMIT 10
+		} WITH *
+		MATCH (p)-[:HAS_TYPE]->(t:Type)
+		RETURN p.name AS name, p.weight_kg AS weight_kg, collect(t.name) AS types
+		ORDER BY weight_kg, name
+	 	'''
+		res = self.session.run(r)
+		print('7. 10 heaviest and lightest Pokemon and their types:')
+		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
+
+	def post_union_processing_variant(self):
+		'''
+		Same as post_union_processing, but with a twist.
+	 	'''
+		
+		r = '''
+		CALL {
+				MATCH (p:Pokemon)-[:HAS_TYPE]->(t:Type)
+				WHERE p.weight_kg IS NOT NULL
+				RETURN p, collect(t.name) as types
+				ORDER BY p.weight_kg DESC
+				LIMIT 10
+			UNION
+				MATCH (p:Pokemon)-[:HAS_TYPE]->(t:Type)
+				WHERE p.weight_kg IS NOT NULL
+				RETURN p, collect(t.name) as types
+				ORDER BY p.weight_kg ASC
+				LIMIT 10
+		} WITH *
+		RETURN p.name AS name, p.weight_kg AS weight_kg, types
+		ORDER BY weight_kg, name
+		'''
+		res = self.session.run(r)
+		print('7b. 10 heaviest and lightest Pokemon and their types:')
+		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
 
 	def run_all(self):
 		'''
@@ -250,6 +303,10 @@ class Neo4jRequest:
 		self.with_filter_aggregate()
 		print()
 		self.predicate_function()
+		print()
+		self.post_union_processing()
+		print()
+		self.post_union_processing_variant()
 
 
 if __name__ == '__main__':
