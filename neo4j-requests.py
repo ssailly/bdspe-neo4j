@@ -23,9 +23,9 @@ class Neo4jRequest:
 		'''
 
 		types = [
-			'Bug', 'Dark', 'Dragon', 'Electric', 'Fairy', 'Fighting', 'Fire',
-			'Flying', 'Ghost', 'Grass', 'Ground', 'Ice', 'Normal', 'Poison',
-			'Psychic', 'Rock', 'Steel', 'Water'
+			'bug', 'dark', 'dragon', 'electric', 'fairy', 'fighting', 'fire',
+			'flying', 'ghost', 'grass', 'ground', 'ice', 'normal', 'poison',
+			'psychic', 'rock', 'steel', 'water'
 		]
 		# Ability cleaning should also work using 
 		# apoc.text.replace(ability, '[^a-zA-Z]', '') but is not used here because
@@ -50,8 +50,6 @@ class Neo4jRequest:
 			sp_attack: toInteger(row.sp_attack),
 			sp_defense: toInteger(row.sp_defense),
 			speed: toInteger(row.speed),
-			type1: row.type1,
-			type2: row.type2,
 			weight_kg: toFloat(row.weight_kg),
 			generation: toInteger(row.generation),
 			is_legendary: toInteger(row.is_legendary)
@@ -68,16 +66,20 @@ class Neo4jRequest:
 			)
 		})
 		MERGE (p)-[:HAS_ABILITY]->(a)
+		MERGE (t:Type {name: row.type1})
+		MERGE (p)-[:HAS_TYPE {first: true}]->(t)
+		WITH p, row WHERE row.type2 IS NOT NULL
+		MERGE (t2:Type {name: row.type2})
+		MERGE (p)-[:HAS_TYPE {first: false}]->(t2)
 		'''
-		i = 0
+		i = 2
 		for t in types:
-			t_lowered = t.lower()
-			if t_lowered == 'fighting': t_lowered = 'fight'
+			if t == 'fighting': t = 'fight'
 			i += 1		
 			var = f't{i}'
 			r += f'''
 			MERGE ({var}:Type {{name: '{t}'}})
-			CREATE (p)-[:AGAINST {{value: toFloat(row.against_{t_lowered})}}]->({var})
+			MERGE (p)-[:AGAINST {{value: toFloat(row.against_{t})}}]->({var})
 			'''
 		self.session.run(r)
 	
@@ -89,8 +91,8 @@ class Neo4jRequest:
 		
 		r = '''
 		MATCH (p:Pokemon)-[r]->(m)
-		WHERE NOT (p)-[:AGAINST {value: 2}]->(:Type {name: 'Fire'})
-			AND NOT (p)-[:AGAINST {value: 0.5}]->(:Type {name: 'Water'})
+		WHERE NOT (p)-[:AGAINST {value: 2}]->(:Type {name: 'fire'})
+			AND NOT (p)-[:AGAINST {value: 0.5}]->(:Type {name: 'water'})
 		RETURN count(distinct p)
 		'''
 		res = self.session.run(r)
@@ -105,9 +107,9 @@ class Neo4jRequest:
 
 		print('2. Psychic type Pokemon resistences:')
 		r = '''
-		MATCH (p:Pokemon {type1: 'psychic'})
+		MATCH (p:Pokemon)-[:HAS_TYPE {first: true}]->(:Type {name: 'psychic'})
 		OPTIONAL MATCH (p)-[r:AGAINST]->(t:Type)
-		WHERE NOT t.name IN ['Psychic', 'Fighting']
+		WHERE NOT t.name IN ['psychic', 'fighting']
 				AND r.value IN [0.5, 0.25]
 		RETURN p.name, t.name, r.value
 		'''
@@ -126,7 +128,7 @@ class Neo4jRequest:
 	 	'''
 
 		r = '''
-		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'Psychic'})
+		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'psychic'})
 		WHERE r.value IN [2, 4]
 		WITH p, COLLECT {
 			MATCH (p)-[:HAS_ABILITY]->(a:Ability)
@@ -145,7 +147,7 @@ class Neo4jRequest:
 		'''
 		
 		r = '''
-		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'Psychic'})
+		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'psychic'})
 		WHERE r.value IN [2, 4]
 		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
 		RETURN a.name, COUNT(distinct p)
@@ -165,7 +167,7 @@ class Neo4jRequest:
 		MATCH (t:Type)<-[r:AGAINST]-(p:Pokemon)-[:HAS_ABILITY]->(a:Ability)
 		WHERE r.value IN [2, 4]
 			AND p.name STARTS WITH 'A'
-			AND t.name IN ['Fire', 'Water', 'Grass']
+			AND t.name IN ['fire', 'water', 'grass']
 		WITH a, collect(distinct p) AS list_pkmn
 		RETURN a.name AS ability,
 			reduce(
