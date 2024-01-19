@@ -183,6 +183,21 @@ class Neo4jRequest:
 					+ " whose name starts with 'A' and who can learn a given ability:")
 		for r in res: print(f'{r[0]}: {r[1]} ({r[2]})')
 
+	def with_filter_aggregate(self):
+		'''
+		Get Pokemon who are immunized against more than one type.
+		'''
+
+		r = '''
+		MATCH (p:Pokemon)-[:AGAINST {value: 0}]->(t:Type)
+		WITH p, count(distinct t) AS count_types
+		WHERE count_types > 1
+		RETURN p.name AS pokemon, count_types
+		'''
+		res = self.session.run(r)
+		print('5. Pokemon who are immunized against more than one type:')
+		for r in res: print(f'{r[0]}: {r[1]}')
+
 	def run_all(self):
 		'''
 		Runs all the requests.
@@ -197,6 +212,8 @@ class Neo4jRequest:
 		self.collect_unwind_variant()
 		print()
 		self.reduce()
+		print()
+		self.with_filter_aggregate()
 
 
 if __name__ == '__main__':
