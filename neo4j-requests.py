@@ -74,12 +74,12 @@ class Neo4jRequest:
 		'''
 		i = 2
 		for t in types:
-			if t == 'fighting': t = 'fight'
+			t2 = 'fight' if t == 'fighting' else t
 			i += 1		
 			var = f't{i}'
 			r += f'''
 			MERGE ({var}:Type {{name: '{t}'}})
-			MERGE (p)-[:AGAINST {{value: toFloat(row.against_{t})}}]->({var})
+			MERGE (p)-[:AGAINST {{value: toFloat(row.against_{t2})}}]->({var})
 			'''
 		self.session.run(r)
 	
