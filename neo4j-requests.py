@@ -118,6 +118,42 @@ class Neo4jRequest:
 			tab2 = '\t\t' if (r[1] != None and len(r[1]) < 8) else '\t'
 			print(f'{r[0]}{tab1}{r[1]}' + (f'{tab2}{r[2]}' if r[1] != None else ''))
 
+	# TODO: check plans of collect_unwind and collect_unwind_variant
+	def collect_unwind(self):
+		'''
+		Find the abilities of Pokemon (very) weak against Psychic type, and count
+		how many of them have each ability.
+	 	'''
+
+		r = '''
+		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'Psychic'})
+		WHERE r.value IN [2, 4]
+		WITH p, COLLECT {
+			MATCH (p)-[:HAS_ABILITY]->(a:Ability)
+			RETURN a.name
+		} AS abilities
+		UNWIND abilities AS ability
+		RETURN ability, COUNT(distinct p)
+		'''
+		res = self.session.run(r)
+		print('3. Abilities of Pokemon (very) weak against Psychic type:')
+		for r in res: print(f'{r[0]}: {r[1]}')
+	
+	def collect_unwind_variant(self):
+		'''
+		Same as collect_unwind, but without using COLLECT and UNWIND.
+		'''
+		
+		r = '''
+		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'Psychic'})
+		WHERE r.value IN [2, 4]
+		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
+		RETURN a.name, COUNT(distinct p)
+  	'''
+		res = self.session.run(r)
+		print('3b. Same as 3., but without using COLLECT and UNWIND:')
+		for r in res: print(f'{r[0]}: {r[1]}')
+
 	def run_all(self):
 		'''
 		Runs all the requests.
@@ -126,16 +162,23 @@ class Neo4jRequest:
 		self.negative_filter()
 		print()
 		self.optional_match()
+		print()
+		self.collect_unwind()
+		print()
+		self.collect_unwind_variant()
 
 
 if __name__ == '__main__':
-	if len(argv) != 3:
-		print('Usage: python neo4j-requests.py [user] [password]')
+	if len(argv) < 3:
+		print('Usage: python neo4j-requests.py [user] [password] <OPTIONS>')
+		print('OPTIONS:')
+		print('- import_only: import data without running requests')
 		exit(1)
 	argv = argv[1:]
+	options = argv[2:]
 	uri = 'bolt://localhost:7687'
 	nrq = Neo4jRequest(uri, argv[0], argv[1])
 	nrq.clear()
 	nrq.import_data()
-	nrq.run_all()
+	if 'import_only' not in options: nrq.run_all()
 	nrq.close()
