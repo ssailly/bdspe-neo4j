@@ -200,6 +200,38 @@ class Neo4jRequest:
 		print('5. Pokemon who are immunized against more than one type:')
 		for r in res: print(f'{r[0]}: {r[1]}')
 
+	def predicate_function(self):
+		'''
+		Get distinct pairs of Pokemon who have a common type, who both are immunized
+		against a type, and where either of one of them or their common type starts
+		with 'f' or 'g'.
+   	'''	
+  
+		r = '''
+		MATCH path = (p1:Pokemon)-[:HAS_TYPE]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
+		WHERE p1 <> p2
+			AND t IS NOT NULL
+			AND ID(p1) < ID(p2)
+			AND single(
+				n IN nodes(path)
+				WHERE n.name STARTS WITH 'f'
+					OR n.name STARTS WITH 'g'
+			)
+			AND exists(
+				(p1)-[:AGAINST {value: 0}]->(:Type)
+			)
+			AND exists(
+				(p2)-[:AGAINST {value: 0}]->(:Type)
+			)
+		RETURN p1.name, p2.name, t.name
+		'''
+		res = self.session.run(r)
+		print('6. Pairs of Pokemon who have a common type, who both are immunized'
+					+ ' against a type, and where either of one of them or their common'
+					+ " type starts with 'f' or 'g':")
+		for r in res: print(f'{r[0]} - {r[1]} (type {r[2]})')
+
+
 	def run_all(self):
 		'''
 		Runs all the requests.
@@ -216,6 +248,8 @@ class Neo4jRequest:
 		self.reduce()
 		print()
 		self.with_filter_aggregate()
+		print()
+		self.predicate_function()
 
 
 if __name__ == '__main__':
