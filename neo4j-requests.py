@@ -27,6 +27,9 @@ class Neo4jRequest:
 			'Flying', 'Ghost', 'Grass', 'Ground', 'Ice', 'Normal', 'Poison',
 			'Psychic', 'Rock', 'Steel', 'Water'
 		]
+		# Ability cleaning should also work using 
+		# apoc.text.replace(ability, '[^a-zA-Z]', '') but is not used here because
+		# we want to avoid the use of an extra library.
 		r = '''
 		LOAD CSV WITH HEADERS FROM 'file:///pokemon.csv' AS row
 		CREATE (p:Pokemon {
@@ -53,6 +56,18 @@ class Neo4jRequest:
 			generation: toInteger(row.generation),
 			is_legendary: toInteger(row.is_legendary)
 		})
+		WITH p, row
+		UNWIND split(row.abilities, ',') AS ability
+		MERGE (a:Ability {
+			name: replace(
+				replace(
+					replace(
+						trim(ability), ']', ''
+					), '[', ''
+				), "'", ''
+			)
+		})
+		MERGE (p)-[:HAS_ABILITY]->(a)
 		'''
 		i = 0
 		for t in types:
