@@ -149,10 +149,39 @@ class Neo4jRequest:
 		WHERE r.value IN [2, 4]
 		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
 		RETURN a.name, COUNT(distinct p)
-  	'''
+		'''
 		res = self.session.run(r)
 		print('3b. Same as 3., but without using COLLECT and UNWIND:')
 		for r in res: print(f'{r[0]}: {r[1]}')
+
+	def reduce(self):
+		'''
+		For each ability, sum the attack of all Pokemon (very) weak against Fire,
+		Water or Grass, whose name starts with 'A'. If there is no such Pokemon for
+		an ability, the ability should not be returned.
+		'''	
+
+		r = '''
+		MATCH (t:Type)<-[r:AGAINST]-(p:Pokemon)-[:HAS_ABILITY]->(a:Ability)
+		WHERE r.value IN [2, 4]
+			AND p.name STARTS WITH 'A'
+			AND t.name IN ['Fire', 'Water', 'Grass']
+		WITH a, collect(distinct p) AS list_pkmn
+		RETURN a.name AS ability,
+			reduce(
+				total_attack = 0, pp IN list_pkmn | total_attack + pp.attack
+			) AS total_attack,
+			reduce(
+		 		names = [], p IN list_pkmn | 
+			 	CASE WHEN NOT p.name IN names THEN names + p.name ELSE names END
+			) as pokemons
+		ORDER BY ability
+		'''
+	
+		res = self.session.run(r)
+		print("4. Total attack of Pokemon (very) weak against Fire, Water or Grass,"
+					+ " whose name starts with 'A' and who can learn a given ability:")
+		for r in res: print(f'{r[0]}: {r[1]} ({r[2]})')
 
 	def run_all(self):
 		'''
@@ -166,6 +195,8 @@ class Neo4jRequest:
 		self.collect_unwind()
 		print()
 		self.collect_unwind_variant()
+		print()
+		self.reduce()
 
 
 if __name__ == '__main__':
