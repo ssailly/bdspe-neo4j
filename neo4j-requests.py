@@ -16,7 +16,6 @@ class Neo4jRequest:
 		'''
 		self.session.run('MATCH (n) DETACH DELETE n')
 
-	# TODO: fix Fighting type vs AGAINST_FIGHT relation
 	def import_data(self):
 		'''
 		Imports the data from pokemon.csv file into the database.
@@ -58,6 +57,7 @@ class Neo4jRequest:
 		i = 0
 		for t in types:
 			t_lowered = t.lower()
+			if t_lowered == 'fighting': t_lowered = 'fight'
 			i += 1		
 			var = f't{i}'
 			r += f'''
@@ -84,14 +84,15 @@ class Neo4jRequest:
 	
 	def optional_match(self):
 		'''
-		Get resistences of Psychic type Pokemon, apart from against Psychic.
+		Get resistences of Psychic type Pokemon, apart from against Psychic and
+		Fighting (well-known resistences for Psychic Pokemon).
 		'''
 
 		print('2. Psychic type Pokemon resistences:')
 		r = '''
 		MATCH (p:Pokemon {type1: 'psychic'})
 		OPTIONAL MATCH (p)-[r:AGAINST]->(t:Type)
-		WHERE t.name <> 'Psychic'
+		WHERE NOT t.name IN ['Psychic', 'Fighting']
 				AND r.value IN [0.5, 0.25]
 		RETURN p.name, t.name, r.value
 		'''
