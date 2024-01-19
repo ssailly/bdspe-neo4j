@@ -285,7 +285,42 @@ class Neo4jRequest:
 		print('7b. 10 heaviest and lightest Pokemon and their types:')
 		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
 
-	def run_all(self):
+	def data_and_topo(self):
+		'''
+		Get paths such as there is a loop of 3 or 4 Pokemon strong against each
+		other, and where the first is not strong against the last.
+		Warning: this query can be very long to run
+	 	'''
+		
+		# first, create relationships between Pokemon where one is strong against
+		# the other
+		r = '''
+		MATCH (p1:Pokemon)-[r:AGAINST]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
+		WHERE r.value IN [0.25, 0.5]
+			AND p1 <> p2
+		MERGE (p1)-[:STRONG_AGAINST]->(p2)
+		'''
+		self.session.run(r)
+		# run the real query
+		r = '''
+		MATCH path = (p1:Pokemon) ((i1:Pokemon)-[:STRONG_AGAINST]->(i2:Pokemon)){3,4} (p2)
+		WHERE none(n IN i1 WHERE exists((n)-[:STRONG_AGAINST]->(p1)))
+				AND exists((p2)-[:STRONG_AGAINST]->(p1))
+				AND NOT exists((p1)-[:STRONG_AGAINST]->(p2))
+		RETURN path
+		'''
+		res = self.session.run(r)
+		print('8. Paths such as there is a loop of 3 or 4 Pokemon strong against'
+					+ ' each other, and where the first is not strong against the last:')
+		for r in res: print(r[0])
+		# clean up
+		r = '''
+		MATCH (:Pokemon)-[r:STRONG_AGAINST]->(:Pokemon)
+		DELETE r
+		'''
+		self.session.run(r)
+
+	def run_all(self, run_topo: bool = False):
 		'''
 		Runs all the requests.
 		'''
@@ -307,6 +342,9 @@ class Neo4jRequest:
 		self.post_union_processing()
 		print()
 		self.post_union_processing_variant()
+		if run_topo:
+			print()
+			self.data_and_topo()
 
 
 if __name__ == '__main__':
@@ -321,5 +359,6 @@ if __name__ == '__main__':
 	nrq = Neo4jRequest(uri, argv[0], argv[1])
 	nrq.clear()
 	nrq.import_data()
-	if 'import_only' not in options: nrq.run_all()
+	run_topo = True if 'topo' in options else False
+	if 'import_only' not in options: nrq.run_all(run_topo)
 	nrq.close()
