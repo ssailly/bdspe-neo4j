@@ -403,7 +403,32 @@ class Neo4jEquivalents:
 
 	@staticmethod
 	def reduce() -> str:
-		raise NotImplementedError('Not implemented for SQL')
+		'''
+		For each ability, sum the attack of all Pokemon (very) weak against Fire,
+		Water or Grass, whose name starts with 'A'. If there is no such Pokemon for
+		an ability, the ability should not be returned.
+		'''	
+
+		return '''
+		SELECT name, SUM(attack), array_agg(pname) FROM (
+			SELECT DISTINCT ability.name name, pokemon.name pname, attack FROM ability
+			JOIN pokemon_ability ON
+				pokemon_ability.ability_id = ability.ability_id
+			JOIN pokemon_battle_stats ON
+				pokemon_battle_stats.pokemon_id = pokemon_ability.pokemon_id
+			JOIN pokemon ON
+				pokemon.pokedex_id = pokemon_ability.pokemon_id
+				AND pokemon.name LIKE 'A%'
+			JOIN pokemon_sensibility ON
+				pokemon_sensibility.pokemon_id = pokemon.pokedex_id
+				AND pokemon_sensibility.type_id IN (
+					SELECT type_id FROM type WHERE name IN ('fire', 'water', 'grass')
+				)
+				AND pokemon_sensibility.sensibility IN (2, 4)
+    ) foo
+		GROUP BY name
+		ORDER BY name
+		'''
 
 	@staticmethod
 	def with_filter_aggregate() -> str:
