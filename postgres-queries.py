@@ -88,9 +88,11 @@ class PostgresQueries:
 		Args:
 			datafile: path to a csv file containing data to populate tables with.
 		'''
+	
+		tmp_table = 'tmp'
 
-		cursor.execute('''
-			CREATE TEMP TABLE tmp (
+		cursor.execute(f'''
+			CREATE TEMP TABLE {tmp_table} (
 				abilities TEXT[],
 				against_bug REAL, against_dark REAL, against_dragon REAL,
 			 	against_electric REAL, against_fairy REAL, against_fight REAL,
@@ -108,11 +110,40 @@ class PostgresQueries:
 			)
 		''')
 		with open(datafile, 'r') as f:
-			with cursor.copy("COPY tmp FROM STDIN DELIMITER ',' CSV HEADER") as copy:
+			with cursor.copy(
+		 		f"COPY {tmp_table} FROM STDIN DELIMITER ',' CSV HEADER"
+			) as copy:
 					while data := f.read(100): 
 						data = data.replace('[', '{').replace(']', '}').replace('\'', '')
 						copy.write(data)
-		
+		cursor.execute(QueryUtils.populate_pokemon_table(tmp_table))
+		cursor.execute(QueryUtils.populate_type_table(tmp_table))
+		cursor.execute(QueryUtils.populate_ability_table(tmp_table))
+		cursor.execute(
+			QueryUtils.populate_basic_association_table(
+				'classification',
+			 	tmp_table
+			)
+		)
+		cursor.execute(
+			QueryUtils.populate_basic_association_table(
+				'generation',
+			 	tmp_table
+			)
+		)
+		cursor.execute(
+			QueryUtils.populate_basic_association_table(
+				'percentage_male',
+			 	tmp_table
+			)
+		)
+		cursor.execute(QueryUtils.populate_pokemon_basic_stats_table(tmp_table))
+		cursor.execute(QueryUtils.populate_pokemon_battle_stats_table(tmp_table))
+		cursor.execute(QueryUtils.populate_pokemon_legendary_table(tmp_table))
+		cursor.execute(QueryUtils.populate_pokemon_sensibility_table(tmp_table))
+		cursor.execute(QueryUtils.populate_pokemon_ability_table(tmp_table))
+		cursor.execute(QueryUtils.populate_pokemon_type_table(tmp_table))
+		cursor.execute(f'DROP TABLE {tmp_table}')
 
 class QueryUtils:
 	'''
@@ -131,11 +162,11 @@ class QueryUtils:
 		'''
 	
 	@staticmethod
-	def create_basic_table(name: str, datatype: str = 'TEXT') -> str:
+	def create_basic_table(name: str) -> str:
 		return f'''
 			CREATE TABLE {name} (
 				{name}_id SERIAL PRIMARY KEY,
-				name {datatype} NOT NULL
+				name TEXT NOT NULL
 			)
 		'''
 	
@@ -163,7 +194,7 @@ class QueryUtils:
 		return f'''
 			CREATE TABLE pokemon_{name} (
 				pokemon_id INTEGER references pokemon(pokedex_id) NOT NULL,
-				{name} {datatype} NOT NULL
+				{name} {datatype}
 			)
 		'''
 	
@@ -217,6 +248,101 @@ class QueryUtils:
 			)
 		'''
 	
+	@staticmethod
+	def populate_pokemon_table(tmp_table: str) -> str:
+		return f'''
+			INSERT INTO pokemon (pokedex_id, name, japanese_name)
+			SELECT pokedex_number, name, japanese_name FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_type_table(tmp_table: str) -> str:
+		# every type appears at least once as first type
+		return f'''
+			INSERT INTO type (name)
+			SELECT DISTINCT type1 FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_ability_table(tmp_table: str) -> str:
+		return f'''
+			INSERT INTO ability (name)
+			SELECT DISTINCT unnest(abilities) FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_basic_association_table(type: str, tmp_table: str) -> str:
+		type2 = 'classfication' if type == 'classification' else type
+		return f'''
+			INSERT INTO pokemon_{type}
+			SELECT pokedex_number, {type2} FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_pokemon_basic_stats_table(tmp_table: str) -> str:
+		return f'''
+			INSERT INTO pokemon_basic_stats
+			SELECT pokedex_number, height_m, weight_kg, capture_rate,
+				base_egg_steps, experience_growth, base_happiness
+			FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_pokemon_battle_stats_table(tmp_table: str) -> str:
+		return f'''
+			INSERT INTO pokemon_battle_stats
+			SELECT pokedex_number, hp, attack, defense, sp_attack, sp_defense, speed
+			FROM {tmp_table}
+		'''
+	
+	@staticmethod
+	def populate_pokemon_legendary_table(tmp_table: str) -> str:
+		return f'''
+			INSERT INTO pokemon_legendary
+			SELECT pokedex_number FROM {tmp_table} WHERE is_legendary
+		'''
+	
+	@staticmethod
+	def populate_pokemon_sensibility_table(tmp_table: str) -> str:
+		types = [
+			'bug', 'dark', 'dragon', 'electric', 'fairy', 'fighting', 'fire',
+   		'flying', 'ghost', 'grass', 'ground', 'ice', 'normal', 'poison',
+     	'psychic', 'rock', 'steel', 'water'
+		]
+		res = '''INSERT INTO pokemon_sensibility
+  	SELECT pokedex_number, type_id, sensibility FROM (
+    '''
+		for type in types:
+			against = 'fight' if type == 'fighting' else type
+			res += f'''
+				SELECT pokedex_number, type_id, against_{against} AS sensibility
+				FROM {tmp_table} JOIN type ON '{type}' = type.name
+			'''
+			if type != types[-1]: res += ' UNION ALL '
+		return res + ') AS foo'
+	
+	@staticmethod
+	def populate_pokemon_ability_table(tmp_table: str) -> str:
+		return f'''
+		INSERT INTO pokemon_ability
+		SELECT pokedex_number, ability_id FROM (
+			SELECT pokedex_number, unnest(abilities) AS ability
+			FROM {tmp_table}
+		) AS foo JOIN ability ON foo.ability = ability.name
+		'''
+
+	@staticmethod
+	def populate_pokemon_type_table(tmp_table: str) -> str:
+		return f'''
+		INSERT INTO pokemon_type
+		SELECT pokedex_number, type_id, first_type FROM (
+			SELECT pokedex_number, type1 AS type, true AS first_type
+			FROM {tmp_table}
+			UNION ALL
+			SELECT pokedex_number, type2 AS type, false AS first_type
+			FROM {tmp_table} WHERE type2 IS NOT NULL
+		) AS foo JOIN type ON foo.type = type.name
+		'''
 
 if __name__ == '__main__':
 	try:
