@@ -79,10 +79,10 @@ class Neo4jQuery:
 			MERGE (p)-[:AGAINST {{value: toFloat(row.against_{t2})}}]->({var})
 			'''
 		r += '''
-  	WITH p, row WHERE row.type2 IS NOT NULL
+		WITH p, row WHERE row.type2 IS NOT NULL
 		MERGE (t2:Type {name: row.type2})
 		MERGE (p)-[:HAS_TYPE {first: false}]->(t2)
-  	'''
+		'''
 		self.session.run(r)
 	
 	def negative_filter(self):
@@ -208,18 +208,20 @@ class Neo4jQuery:
 		'''
 		Get distinct pairs of Pokemon who have a common type, who both are immunized
 		against a type, and where either of one of them or their common type starts
-		with 'f' or 'g'.
-	 	'''	
+		with 'f' or 'g', and the two other nodes start with another letter.
+	 	'''
 	
 		r = '''
 		MATCH path = (p1:Pokemon)-[:HAS_TYPE]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
 		WHERE p1 <> p2
 			AND t IS NOT NULL
-			AND ID(p1) < ID(p2)
+			AND p1.pokedex_number < p2.pokedex_number
 			AND single(
 				n IN nodes(path)
 				WHERE n.name STARTS WITH 'f'
 					OR n.name STARTS WITH 'g'
+					OR n.name STARTS WITH 'F'
+					OR n.name STARTS WITH 'G'
 			)
 			AND exists(
 				(p1)-[:AGAINST {value: 0}]->(:Type)
@@ -227,7 +229,8 @@ class Neo4jQuery:
 			AND exists(
 				(p2)-[:AGAINST {value: 0}]->(:Type)
 			)
-		RETURN p1.name, p2.name, t.name
+		RETURN DISTINCT p1.name, p2.name, t.name
+		ORDER BY p1.name, p2.name
 		'''
 		res = self.session.run(r)
 		print('6. Pairs of Pokemon who have a common type, who both are immunized'

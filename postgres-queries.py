@@ -425,7 +425,7 @@ class Neo4jEquivalents:
 					SELECT type_id FROM type WHERE name IN ('fire', 'water', 'grass')
 				)
 				AND pokemon_sensibility.sensibility IN (2, 4)
-    ) foo
+		) foo
 		GROUP BY name
 		ORDER BY name
 		'''
@@ -449,7 +449,42 @@ class Neo4jEquivalents:
 
 	@staticmethod
 	def predicate_function() -> str:
-		raise NotImplementedError('Not implemented for SQL')
+		'''
+		Get distinct pairs of Pokemon who have a common type, who both are immunized
+		against a type, and where either of one of them or their common type starts
+		with 'f' or 'g', and the two other nodes start with another letter.
+	 	'''
+
+		xor_p1 = "p1.name SIMILAR TO '[fgFG]%'"
+		xor_p2 = "p2.name SIMILAR TO '[fgFG]%'"
+		xor_type = "type.name SIMILAR TO '[fgFG]%'"
+		xor_exp = f'''
+		({xor_p1} AND NOT {xor_p2} AND NOT {xor_type})
+		OR (NOT {xor_p1} AND {xor_p2} AND NOT {xor_type})
+		OR (NOT {xor_p1} AND NOT {xor_p2} AND {xor_type})
+		'''
+		return f'''
+		SELECT DISTINCT p1.name, p2.name, type.name
+		FROM pokemon_sensibility ps1
+		JOIN pokemon_sensibility ps2 ON
+			ps1.pokemon_id < ps2.pokemon_id
+			AND ps1.sensibility = 0
+			AND ps2.sensibility = 0
+		JOIN pokemon_type pt1 ON
+			pt1.pokemon_id = ps1.pokemon_id
+		JOIN pokemon_type pt2 ON
+			pt2.pokemon_id = ps2.pokemon_id
+			AND pt1.type_id = pt2.type_id
+		JOIN type ON
+			type.type_id = pt1.type_id
+			AND type.type_id = pt2.type_id
+		JOIN pokemon p1 ON
+			p1.pokedex_id = ps1.pokemon_id
+		JOIN pokemon p2 ON
+			p2.pokedex_id = ps2.pokemon_id
+		WHERE {xor_exp}
+		ORDER BY p1.name, p2.name
+		'''
 
 	@staticmethod
 	def post_union_processing() -> str:
@@ -470,13 +505,13 @@ class Neo4jEquivalents:
 			) foo ON foo.pokemon_id = pokemon.pokedex_id
 			ORDER BY weight_kg DESC, pokemon.name
 			LIMIT 10
-   	) bar
+	 	) bar
 		UNION (
 			SELECT pokemon.name, weight_kg, types FROM pokemon
 			JOIN pokemon_basic_stats ON
 				pokemon_basic_stats.pokemon_id = pokemon.pokedex_id
 				AND weight_kg IS NOT NULL
-    	JOIN (
+			JOIN (
 				SELECT pokemon_id, array_agg(type.name) types FROM pokemon_type
 				JOIN type ON type.type_id = pokemon_type.type_id
 				GROUP BY pokemon_id
