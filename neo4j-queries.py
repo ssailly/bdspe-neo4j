@@ -68,9 +68,6 @@ class Neo4jQuery:
 		MERGE (p)-[:HAS_ABILITY]->(a)
 		MERGE (t:Type {name: row.type1})
 		MERGE (p)-[:HAS_TYPE {first: true}]->(t)
-		WITH p, row WHERE row.type2 IS NOT NULL
-		MERGE (t2:Type {name: row.type2})
-		MERGE (p)-[:HAS_TYPE {first: false}]->(t2)
 		'''
 		i = 2
 		for t in types:
@@ -81,6 +78,11 @@ class Neo4jQuery:
 			MERGE ({var}:Type {{name: '{t}'}})
 			MERGE (p)-[:AGAINST {{value: toFloat(row.against_{t2})}}]->({var})
 			'''
+		r += '''
+  	WITH p, row WHERE row.type2 IS NOT NULL
+		MERGE (t2:Type {name: row.type2})
+		MERGE (p)-[:HAS_TYPE {first: false}]->(t2)
+  	'''
 		self.session.run(r)
 	
 	def negative_filter(self):
