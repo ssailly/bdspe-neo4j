@@ -407,7 +407,19 @@ class Neo4jEquivalents:
 
 	@staticmethod
 	def with_filter_aggregate() -> str:
-		raise NotImplementedError('Not implemented for SQL')
+		'''
+		Get Pokemon who are immunized against more than one type.
+		'''
+		return '''
+		SELECT pokemon.name, COUNT(DISTINCT pokemon_sensibility.type_id) count_types
+  	FROM pokemon_sensibility
+   	JOIN pokemon ON
+    	pokemon_sensibility.pokemon_id = pokemon.pokedex_id
+     	AND sensibility = 0
+    GROUP BY pokemon.name
+    HAVING COUNT(DISTINCT pokemon_sensibility.type_id) > 1
+    ORDER BY pokemon.name
+		'''
 
 	@staticmethod
 	def predicate_function() -> str:

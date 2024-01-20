@@ -198,6 +198,7 @@ class Neo4jQuery:
 		WITH p, count(distinct t) AS count_types
 		WHERE count_types > 1
 		RETURN p.name AS pokemon, count_types
+		ORDER BY pokemon
 		'''
 		res = self.session.run(r)
 		print('5. Pokemon who are immunized against more than one type:')
