@@ -349,7 +349,7 @@ class Neo4jRequest:
 
 if __name__ == '__main__':
 	if len(argv) < 3:
-		print('Usage: python neo4j-requests.py [user] [password] <OPTIONS>')
+		print('Usage: python neo4j-requests.py <user> <password> [OPTIONS]')
 		print('OPTIONS:')
 		print('  import_only: import data without running requests')
 		print('  topo: run the last request (can be very long to run)')
