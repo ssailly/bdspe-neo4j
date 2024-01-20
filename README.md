@@ -16,8 +16,8 @@ Dependencies can be installed running `pip install -r requirements`.
 `pokemon.csv` should be placed in Neo4j's `import` folder **manually** before
 running the script.
 
-`python neo4j-requests.py <user> <password> [OPTIONS]`
+`python neo4j-queries.py <user> <password> [OPTIONS]`
 
 ### PostgreSQL
 
-`python postgresql-requests.py -u <user> -p <password> -d <database> [OPTIONS]`
+`python postgresql-queries.py -u <user> -p <password> -d <database> [OPTIONS]`

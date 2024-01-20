@@ -1,7 +1,7 @@
 from neo4j import GraphDatabase
 from sys import argv
 
-class Neo4jRequest:
+class Neo4jQuery:
 	def __init__(self, uri, user, password):
 		self.driver = GraphDatabase.driver(uri, auth = (user, password))
 		self.session = self.driver.session()
@@ -322,7 +322,7 @@ class Neo4jRequest:
 
 	def run_all(self, run_topo: bool = False):
 		'''
-		Runs all the requests.
+		Runs all the queries.
 		'''
 
 		self.negative_filter()
@@ -349,15 +349,15 @@ class Neo4jRequest:
 
 if __name__ == '__main__':
 	if len(argv) < 3:
-		print('Usage: python neo4j-requests.py <user> <password> [OPTIONS]')
+		print('Usage: python neo4j-queries.py <user> <password> [OPTIONS]')
 		print('OPTIONS:')
-		print('  import_only: import data without running requests')
-		print('  topo: run the last request (can be very long to run)')
+		print('  import_only: import data without running queries')
+		print('  topo: run the last query (can be very long to run)')
 		exit(1)
 	argv = argv[1:]
 	options = argv[2:]
 	uri = 'bolt://localhost:7687'
-	nrq = Neo4jRequest(uri, argv[0], argv[1])
+	nrq = Neo4jQuery(uri, argv[0], argv[1])
 	nrq.clear()
 	nrq.import_data()
 	run_topo = True if 'topo' in options else False
