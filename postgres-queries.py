@@ -22,7 +22,7 @@ class PostgresQueries:
 			self.conn.close()
 			self.conn = psycopg.connect(host = host, user = user, password = password,
 															 dbname = database, autocommit = True)
-		self.create_tables(datafile)
+		self.create_and_populate(datafile)
 	
 	def close(self):
 		self.conn.close()
@@ -35,7 +35,7 @@ class PostgresQueries:
 			for table in tables:
 				cursor.execute(f'DROP TABLE {table} CASCADE')
 	
-	def create_tables(self, datafile: str):
+	def create_and_populate(self, datafile: str):
 		'''
 		Create all tables in database, and populate them with data from csv file.
 
@@ -46,32 +46,73 @@ class PostgresQueries:
 		with self.conn.cursor() as cursor:
 			for table in tables:
 				cursor.execute(f'DROP TABLE IF EXISTS {table} CASCADE')
-			cursor.execute(QueryUtils.create_pokemon_table())
-			cursor.execute(QueryUtils.create_basic_table('type'))
-			cursor.execute(QueryUtils.create_association_table('type'))
-			cursor.execute(QueryUtils.create_basic_table('ability'))
-			cursor.execute(QueryUtils.create_association_table('ability'))
-			cursor.execute(
-		 		QueryUtils.create_basic_association_table(
-					'percentage_male',
-					'REAL'
-				)
+			self.__create_tables(cursor)
+			self.__populate_tables(cursor, datafile)
+
+	def __create_tables(self, cursor: psycopg.cursor):
+		'''
+		Create all tables in database.
+		'''
+	 
+		cursor.execute(QueryUtils.create_pokemon_table())
+		cursor.execute(QueryUtils.create_basic_table('type'))
+		cursor.execute(QueryUtils.create_association_table('type'))
+		cursor.execute(QueryUtils.create_basic_table('ability'))
+		cursor.execute(QueryUtils.create_association_table('ability'))
+		cursor.execute(
+			QueryUtils.create_basic_association_table(
+				'percentage_male',
+				'REAL'
 			)
-			cursor.execute(
-		 		QueryUtils.create_basic_association_table(
-				 	'classification'
-				)
+		)
+		cursor.execute(
+			QueryUtils.create_basic_association_table(
+			 	'classification'
 			)
-			cursor.execute(
-		 		QueryUtils.create_basic_association_table(
-				 	'generation',
-					'INTEGER'
-				)
+		)
+		cursor.execute(
+			QueryUtils.create_basic_association_table(
+			 	'generation',
+				'INTEGER'
 			)
-			cursor.execute(QueryUtils.create_pokemon_sensibility_table())
-			cursor.execute(QueryUtils.create_pokemon_basic_stats_table())
-			cursor.execute(QueryUtils.create_pokemon_battle_stats_table())
-			cursor.execute(QueryUtils.create_pokemon_legendary_table())
+		)
+		cursor.execute(QueryUtils.create_pokemon_sensibility_table())
+		cursor.execute(QueryUtils.create_pokemon_basic_stats_table())
+		cursor.execute(QueryUtils.create_pokemon_battle_stats_table())
+		cursor.execute(QueryUtils.create_pokemon_legendary_table())
+
+	def __populate_tables(self, cursor: psycopg.cursor, datafile: str):
+		'''
+		Populate all tables in database with data from csv file.
+
+		Args:
+			datafile: path to a csv file containing data to populate tables with.
+		'''
+
+		cursor.execute('''
+			CREATE TEMP TABLE tmp (
+				abilities TEXT[],
+				against_bug REAL, against_dark REAL, against_dragon REAL,
+			 	against_electric REAL, against_fairy REAL, against_fight REAL,
+				against_fire REAL,against_flying REAL,against_ghost REAL,
+				against_grass REAL, against_ground REAL, against_ice REAL,
+				against_normal REAL, against_poison REAL, against_psychic REAL,
+				against_rock REAL, against_steel REAL, against_water REAL,
+				attack INTEGER, base_egg_steps INTEGER,base_happiness INTEGER,
+				base_total INTEGER, capture_rate INTEGER, classfication TEXT,
+				defense INTEGER, experience_growth INTEGER, height_m REAL, hp INTEGER,
+				japanese_name TEXT, name TEXT, percentage_male REAL,
+				pokedex_number INTEGER, sp_attack INTEGER,sp_defense INTEGER,
+				speed INTEGER, type1 TEXT, type2 TEXT, weight_kg REAL,
+				generation INTEGER,is_legendary BOOLEAN
+			)
+		''')
+		with open(datafile, 'r') as f:
+			with cursor.copy("COPY tmp FROM STDIN DELIMITER ',' CSV HEADER") as copy:
+					while data := f.read(100): 
+						data = data.replace('[', '{').replace(']', '}').replace('\'', '')
+						copy.write(data)
+		
 
 class QueryUtils:
 	'''
