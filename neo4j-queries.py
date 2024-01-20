@@ -138,6 +138,7 @@ class Neo4jQuery:
 		} AS abilities
 		UNWIND abilities AS ability
 		RETURN ability, COUNT(distinct p)
+		ORDER BY ability
 		'''
 		res = self.session.run(r)
 		print('3. Abilities of Pokemon (very) weak against Psychic type:')

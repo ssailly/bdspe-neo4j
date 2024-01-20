@@ -354,6 +354,10 @@ class Neo4jEquivalents:
 	'''
 
 	@staticmethod
+	def negative_filter() -> str:
+		raise NotImplementedError('Not implemented for SQL')
+
+	@staticmethod
 	def optional_match() -> str:
 		'''
 		Get resistences of Psychic type Pokemon, apart from against Psychic and
@@ -375,6 +379,47 @@ class Neo4jEquivalents:
 		LEFT JOIN type ON type.type_id = pokemon_sensibility.type_id
    ORDER BY pokemon.name
 		'''
+
+	@staticmethod
+	def collect_unwind() -> str:
+		'''
+		Find the abilities of Pokemon (very) weak against Psychic type, and count
+		how many of them have each ability.
+	 	'''
+		
+		return '''
+		SELECT DISTINCT ability.name ability, COUNT(DISTINCT pokemon_ability.pokemon_id) FROM pokemon_sensibility
+		JOIN pokemon_ability ON
+			pokemon_ability.pokemon_id = pokemon_sensibility.pokemon_id
+		JOIN ability ON
+			ability.ability_id = pokemon_ability.ability_id
+  	WHERE sensibility IN (2, 4)
+   		AND type_id = (
+       	SELECT type_id FROM type WHERE name = 'psychic'
+      )
+    GROUP BY ability.name
+		ORDER BY ability.name
+		'''
+
+	@staticmethod
+	def reduce() -> str:
+		raise NotImplementedError('Not implemented for SQL')
+
+	@staticmethod
+	def with_filter_aggregate() -> str:
+		raise NotImplementedError('Not implemented for SQL')
+
+	@staticmethod
+	def predicate_function() -> str:
+		raise NotImplementedError('Not implemented for SQL')
+
+	@staticmethod
+	def post_union_processing() -> str:
+		raise NotImplementedError('Not implemented for SQL')
+
+	@staticmethod
+	def data_and_topo() -> str:
+		raise NotImplementedError('Not implemented for SQL')
 
 if __name__ == '__main__':
 	try:
