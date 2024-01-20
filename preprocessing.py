@@ -18,10 +18,13 @@ if __name__ == '__main__':
 				for i in range(len(vals)):
 					vals[i] = ''.join(c for c in vals[i] if c.isdigit())
 				vals = [val for val in vals if val]
+				i = 0
 				for val in vals:
+					i += 1
 					new_row = row.copy()
 					# to avoid duplicate pokedex numbers
 					# works because there are less than 1000 pokemon
+					new_row['name'] = new_row['name'] + '_' + str(i)
 					new_row['pokedex_number'] = int(
 			 			new_row['pokedex_number']
 					) + 1000 * vals.index(val)
