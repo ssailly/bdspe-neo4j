@@ -85,8 +85,8 @@ class Neo4jQuery:
 	
 	def negative_filter(self):
 		'''
-		Counts the number of Pokemon that are weak against Fire and strong against
-		Water.
+		Counts the number of Pokemon that are not weak against Fire and not strong
+		against	Water.
 		'''
 		
 		r = '''
@@ -96,8 +96,8 @@ class Neo4jQuery:
 		RETURN count(distinct p)
 		'''
 		res = self.session.run(r)
-		print('1. Number of Pokemon weak against Fire and strong against Water: '
-					+ str(res.single()[0]))
+		print('1. Number of Pokemon not weak against Fire and not strong against'
+					+ ' Water: ' + str(res.single()[0]))
 	
 	def optional_match(self):
 		'''
