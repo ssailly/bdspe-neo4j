@@ -367,17 +367,17 @@ class Neo4jEquivalents:
 		return '''
 		SELECT DISTINCT pokemon.name, type.name, sensibility FROM pokemon_type
 		JOIN pokemon ON
-  		pokemon.pokedex_id = pokemon_type.pokemon_id
-    	AND type_id = (SELECT type_id FROM type WHERE name = 'psychic')
-    	AND pokemon_type.first_type
-    LEFT JOIN pokemon_sensibility ON
+			pokemon.pokedex_id = pokemon_type.pokemon_id
+			AND type_id = (SELECT type_id FROM type WHERE name = 'psychic')
+			AND pokemon_type.first_type
+		LEFT JOIN pokemon_sensibility ON
 			pokemon_sensibility.pokemon_id = pokemon_type.pokemon_id
 			AND pokemon_sensibility.type_id IN (
-     		SELECT type_id FROM type WHERE name NOT IN ('psychic', 'fighting')
-      )
+		 		SELECT type_id FROM type WHERE name NOT IN ('psychic', 'fighting')
+			)
 			AND pokemon_sensibility.sensibility IN (0.25, 0.5)
 		LEFT JOIN type ON type.type_id = pokemon_sensibility.type_id
-   ORDER BY pokemon.name
+	 ORDER BY pokemon.name
 		'''
 
 	@staticmethod
@@ -393,11 +393,11 @@ class Neo4jEquivalents:
 			pokemon_ability.pokemon_id = pokemon_sensibility.pokemon_id
 		JOIN ability ON
 			ability.ability_id = pokemon_ability.ability_id
-  	WHERE sensibility IN (2, 4)
-   		AND type_id = (
-       	SELECT type_id FROM type WHERE name = 'psychic'
-      )
-    GROUP BY ability.name
+		WHERE sensibility IN (2, 4)
+	 		AND type_id = (
+			 	SELECT type_id FROM type WHERE name = 'psychic'
+			)
+		GROUP BY ability.name
 		ORDER BY ability.name
 		'''
 
@@ -410,15 +410,16 @@ class Neo4jEquivalents:
 		'''
 		Get Pokemon who are immunized against more than one type.
 		'''
+	
 		return '''
 		SELECT pokemon.name, COUNT(DISTINCT pokemon_sensibility.type_id) count_types
-  	FROM pokemon_sensibility
-   	JOIN pokemon ON
-    	pokemon_sensibility.pokemon_id = pokemon.pokedex_id
-     	AND sensibility = 0
-    GROUP BY pokemon.name
-    HAVING COUNT(DISTINCT pokemon_sensibility.type_id) > 1
-    ORDER BY pokemon.name
+		FROM pokemon_sensibility
+	 	JOIN pokemon ON
+			pokemon_sensibility.pokemon_id = pokemon.pokedex_id
+		 	AND sensibility = 0
+		GROUP BY pokemon.name
+		HAVING COUNT(DISTINCT pokemon_sensibility.type_id) > 1
+		ORDER BY pokemon.name
 		'''
 
 	@staticmethod
@@ -427,7 +428,38 @@ class Neo4jEquivalents:
 
 	@staticmethod
 	def post_union_processing() -> str:
-		raise NotImplementedError('Not implemented for SQL')
+		'''
+		Get the 10 heaviest and lightest Pokemon and their types.
+	 	'''
+
+		return '''
+		SELECT * FROM (
+			SELECT pokemon.name, weight_kg, types FROM pokemon
+			JOIN pokemon_basic_stats ON
+				pokemon_basic_stats.pokemon_id = pokemon.pokedex_id
+				AND weight_kg IS NOT NULL
+			JOIN (
+				SELECT pokemon_id, array_agg(type.name) types FROM pokemon_type
+				JOIN type ON type.type_id = pokemon_type.type_id
+				GROUP BY pokemon_id
+			) foo ON foo.pokemon_id = pokemon.pokedex_id
+			ORDER BY weight_kg DESC, pokemon.name
+			LIMIT 10
+   	) bar
+		UNION (
+			SELECT pokemon.name, weight_kg, types FROM pokemon
+			JOIN pokemon_basic_stats ON
+				pokemon_basic_stats.pokemon_id = pokemon.pokedex_id
+				AND weight_kg IS NOT NULL
+    	JOIN (
+				SELECT pokemon_id, array_agg(type.name) types FROM pokemon_type
+				JOIN type ON type.type_id = pokemon_type.type_id
+				GROUP BY pokemon_id
+			) foo ON foo.pokemon_id = pokemon.pokedex_id
+			ORDER BY weight_kg ASC, pokemon.name
+			LIMIT 10
+		) ORDER BY weight_kg, name
+		'''
 
 	@staticmethod
 	def data_and_topo() -> str:
