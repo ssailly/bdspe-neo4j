@@ -102,7 +102,7 @@ class Neo4jQuery:
 	def optional_match(self):
 		'''
 		Get resistences of Psychic type Pokemon, apart from against Psychic and
-		Fighting (well-known resistences for Psychic Pokemon).
+		Fighting (well-known resistences for Psychic Pokemon), if any.
 		'''
 
 		print('2. Psychic type Pokemon resistences:')

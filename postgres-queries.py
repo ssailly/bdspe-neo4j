@@ -306,12 +306,12 @@ class QueryUtils:
 	def populate_pokemon_sensibility_table(tmp_table: str) -> str:
 		types = [
 			'bug', 'dark', 'dragon', 'electric', 'fairy', 'fighting', 'fire',
-   		'flying', 'ghost', 'grass', 'ground', 'ice', 'normal', 'poison',
-     	'psychic', 'rock', 'steel', 'water'
+	 		'flying', 'ghost', 'grass', 'ground', 'ice', 'normal', 'poison',
+		 	'psychic', 'rock', 'steel', 'water'
 		]
 		res = '''INSERT INTO pokemon_sensibility
-  	SELECT pokedex_number, type_id, sensibility FROM (
-    '''
+		SELECT pokedex_number, type_id, sensibility FROM (
+		'''
 		for type in types:
 			against = 'fight' if type == 'fighting' else type
 			res += f'''
@@ -342,6 +342,38 @@ class QueryUtils:
 			SELECT pokedex_number, type2 AS type, false AS first_type
 			FROM {tmp_table} WHERE type2 IS NOT NULL
 		) AS foo JOIN type ON foo.type = type.name
+		'''
+
+class Neo4jEquivalents:
+	'''
+	Convenience methods for storing queries equivalent to those written for
+	querying on the Neo4j database. All methods should be static and return a
+	string, which is the query to be executed. All methods' names should be
+	the same as the corresponding method in neo4j-queries.py, even if it is
+	irrelevant to the SQL query.
+	'''
+
+	@staticmethod
+	def optional_match() -> str:
+		'''
+		Get resistences of Psychic type Pokemon, apart from against Psychic and
+		Fighting (well-known resistences for Psychic Pokemon), if any.
+		'''
+
+		return '''
+		SELECT DISTINCT pokemon.name, type.name, sensibility FROM pokemon_type
+		JOIN pokemon ON
+  		pokemon.pokedex_id = pokemon_type.pokemon_id
+    	AND type_id = (SELECT type_id FROM type WHERE name = 'psychic')
+    	AND pokemon_type.first_type
+    LEFT JOIN pokemon_sensibility ON
+			pokemon_sensibility.pokemon_id = pokemon_type.pokemon_id
+			AND pokemon_sensibility.type_id IN (
+     		SELECT type_id FROM type WHERE name NOT IN ('psychic', 'fighting')
+      )
+			AND pokemon_sensibility.sensibility IN (0.25, 0.5)
+		LEFT JOIN type ON type.type_id = pokemon_sensibility.type_id
+   ORDER BY pokemon.name
 		'''
 
 if __name__ == '__main__':
