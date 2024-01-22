@@ -521,9 +521,87 @@ class Neo4jEquivalents:
 		) ORDER BY weight_kg, name
 		'''
 
+	#################################
+	# OOM killer would get involved #
+	#    without 'LIMIT' clause     #
+	# If it still doesn't work, try #
+	# with a smaller depth (e.g. 4) #
+	#################################
 	@staticmethod
 	def data_and_topo() -> str:
-		raise NotImplementedError('Not implemented for SQL')
+		'''
+		Get paths such as there is a loop of 3 or 4 Pokemon strong against each
+		other, and where the first is not strong against the last.
+		'''
+		
+		create_pokemon_strong = Neo4jEquivalents.__create_pokemon_strong()
+		populate_pokemon_strong = Neo4jEquivalents.__populate_pokemon_strong()
+		# 'AND EXISTS...' for ensuring there is no loop in the path
+		recursive_query = '''
+		WITH RECURSIVE path AS (
+			SELECT pid_1, pid_2, 0 AS depth, ARRAY[pid_1] arr FROM pokemon_strong
+			UNION
+			SELECT p.pid_1, ps.pid_2, depth + 1, arr || ps.pid_2 FROM path p
+			JOIN pokemon_strong ps ON
+				p.pid_2 = ps.pid_1
+			WHERE depth < 5
+		)
+		SELECT pid_1 start, pid_2 end, arr path FROM path p
+		WHERE
+			EXISTS (
+				SELECT * FROM pokemon_strong ps
+				WHERE p.pid_1 = ps.pid_2
+					AND p.pid_2 = ps.pid_1
+			)
+			AND NOT EXISTS (
+				SELECT * FROM pokemon_strong ps
+				WHERE p.pid_1 = ps.pid_1
+					AND p.pid_2 = ps.pid_2
+			)
+			AND depth = 3 OR depth = 4
+			AND EXISTS (
+				WITH dist_c AS (
+					SELECT COUNT(DISTINCT u) dist_c FROM unnest(arr) u
+				), c AS (
+					SELECT COUNT(u) c FROM unnest(arr) u
+    		)
+				SELECT * FROM dist_c JOIN c ON dist_c.dist_c = c.c
+			)
+		LIMIT 30;
+		'''
+		return f'''
+		{create_pokemon_strong}
+		{populate_pokemon_strong}
+		{recursive_query}
+		'''
+
+	@staticmethod
+	def __create_pokemon_strong() -> str:
+		'''
+		Create a table pokemon_strong(p1, p2) where p1 is strong against p2.
+	 	'''
+		
+		return '''
+		CREATE TABLE pokemon_strong (
+			pid_1 INTEGER references pokemon(pokedex_id) NOT NULL,
+		 	pid_2 INTEGER references pokemon(pokedex_id) NOT NULL
+			CONSTRAINT check_different CHECK (
+				pid_1 <> pid_2
+			)
+		);
+		'''
+	
+	@staticmethod
+	def __populate_pokemon_strong() -> str:
+		return '''
+		INSERT INTO pokemon_strong
+		SELECT DISTINCT ps.pokemon_id pid_1, pt.pokemon_id pid_2
+		FROM pokemon_sensibility ps
+		JOIN pokemon_type pt ON
+			ps.type_id = pt.type_id
+			AND ps.pokemon_id <> pt.pokemon_id
+		WHERE sensibility IN (0.25, 0.5);
+		'''
 
 if __name__ == '__main__':
 	try:
