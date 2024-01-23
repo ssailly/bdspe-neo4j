@@ -20,4 +20,4 @@ running the script.
 
 ### PostgreSQL
 
-`python postgresql-queries.py -u <user> -p <password> -d <database> [OPTIONS]`
+`python postgres-queries.py -u <user> -p <password> -d <database> [OPTIONS]`
