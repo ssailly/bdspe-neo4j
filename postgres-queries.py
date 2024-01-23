@@ -411,7 +411,7 @@ class Neo4jEquivalents:
 
 		return '''
 		SELECT name, SUM(attack), array_agg(pname) FROM (
-			SELECT DISTINCT ability.name name, pokemon.name pname, attack FROM ability
+			SELECT DISTINCT ability.name AS name, pokemon.name AS pname, attack FROM ability
 			JOIN pokemon_ability ON
 				pokemon_ability.ability_id = ability.ability_id
 			JOIN pokemon_battle_stats ON
@@ -499,7 +499,7 @@ class Neo4jEquivalents:
 				pokemon_basic_stats.pokemon_id = pokemon.pokedex_id
 				AND weight_kg IS NOT NULL
 			JOIN (
-				SELECT pokemon_id, array_agg(type.name) types FROM pokemon_type
+				SELECT pokemon_id, array_agg(type.name) AS types FROM pokemon_type
 				JOIN type ON type.type_id = pokemon_type.type_id
 				GROUP BY pokemon_id
 			) foo ON foo.pokemon_id = pokemon.pokedex_id
@@ -512,7 +512,7 @@ class Neo4jEquivalents:
 				pokemon_basic_stats.pokemon_id = pokemon.pokedex_id
 				AND weight_kg IS NOT NULL
 			JOIN (
-				SELECT pokemon_id, array_agg(type.name) types FROM pokemon_type
+				SELECT pokemon_id, array_agg(type.name) AS types FROM pokemon_type
 				JOIN type ON type.type_id = pokemon_type.type_id
 				GROUP BY pokemon_id
 			) foo ON foo.pokemon_id = pokemon.pokedex_id
@@ -546,7 +546,7 @@ class Neo4jEquivalents:
 				p.pid_2 = ps.pid_1
 			WHERE depth < 5
 		)
-		SELECT pid_1 start, pid_2 end, arr path FROM path p
+		SELECT pid_1 AS start, pid_2 AS end, arr AS path FROM path p
 		WHERE
 			EXISTS (
 				SELECT * FROM pokemon_strong ps
@@ -603,6 +603,48 @@ class Neo4jEquivalents:
 		WHERE sensibility IN (0.25, 0.5);
 		'''
 
+def executeQueries(psql, run_topo):
+	#print("negative filter")
+	#with psql.conn.cursor() as cursor:
+	#	cursor.execute(Neo4jEquivalents.negative_filter())
+	#	print(cursor.fetchone()[0])
+	#print()
+
+	print("optional match")
+	run_query(psql, Neo4jEquivalents.optional_match())
+	print()
+	
+	print("collect unwind")
+	run_query(psql, Neo4jEquivalents.collect_unwind())
+	print()
+
+	print("reduce")
+	run_query(psql, Neo4jEquivalents.reduce())
+	print()
+
+	print("with filter aggregate")
+	run_query(psql, Neo4jEquivalents.with_filter_aggregate())
+	print()
+
+	print("predicate function")
+	run_query(psql, Neo4jEquivalents.predicate_function())
+	print()
+
+	print("post union processing")
+	run_query(psql, Neo4jEquivalents.post_union_processing())
+	print()
+
+	if run_topo:
+		print("data and topo")
+		run_query(psql, Neo4jEquivalents.data_and_topo())
+		print()
+
+def run_query(psql, f):
+    with psql.conn.cursor() as cursor:
+     cursor.execute(f)
+     for row in cursor.fetchall():
+      print(row)
+
 if __name__ == '__main__':
 	try:
 		argv = argv[1:]
@@ -612,9 +654,16 @@ if __name__ == '__main__':
 		host = argv[argv.index('-h') + 1] if '-h' in argv else 'localhost'
 		datafile = argv[argv.index('-f') + 1] if '-f' in argv else 'pokemon.csv'
 		psql = PostgresQueries(user, password, database, host, datafile)
+
+		run_topo = True if 'topo' in argv else False
+
+		executeQueries(psql, run_topo)
+		
 	except psycopg.Error as e:
 		print(f'Error: {e}')
 		print('Usage: python postgres-queries.py -u <user> -p <password>'
-					+ ' -d <database> -h <host> -f <datafile>')
+					+ ' -d <database> -h <host> -f <datafile> [OPTIONS]')
+		print('OPTIONS:')
+		print('   topo: run the last query (can be very long to run)')
 		exit(1)
 	psql.close()
