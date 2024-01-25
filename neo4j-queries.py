@@ -367,7 +367,12 @@ class Neo4jAnalysis:
 		'''
 		Get communities and their sizes using Louvain algorithm.
 	 	'''
-		
+
+		r_remove = '''
+		CALL gds.graph.drop('graph1', false);
+		'''
+		self.session.run(r_remove)
+
 		r_create = '''
 		CALL gds.graph.project(
 				'graph1',
@@ -394,10 +399,6 @@ class Neo4jAnalysis:
 		WITH gds.util.asNode(nodeId).name AS name, communityId
 		RETURN communityId, COUNT(name) AS count
 		ORDER BY count DESC;
-		'''
-
-		r_remove = '''
-		CALL gds.graph.drop('graph1', false);
 		'''
 
 		self.session.run(r_create)
@@ -463,10 +464,11 @@ class Neo4jAnalysis:
 
 	def shortest_path(self):
 		'''
-		For all pairs of Pokemon, find the longest path between them using
+		For all pairs of Pokemon, find the shortest path between them using
 		'STRONG_AGAINST' relationships only.
 		'''
 
+		# just in case... :)
 		r_rel = '''
 		MATCH (p1:Pokemon)-[r:AGAINST]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
 		WHERE r.value IN [0.25, 0.5]
@@ -503,11 +505,53 @@ class Neo4jAnalysis:
 		self.session.run(r_proj)
 		res = self.session.run(r_call)
 		limit = 10
-		print('Longest paths between Pokemon:')
+		print('Shortest paths between Pokemon:')
 		for r in res:
-			print(f'Longest path between {r[0]} and {r[1]}: {r[2]}')
+			print(f'Shortest path between {r[0]} and {r[1]}: {r[2]}')
 			limit -= 1	
 			if not limit: break
+
+	def dijkstra(self):
+		'''
+		Get the average length of the shortest path between all pairs of Pokemon
+		'STRONG_AGAINST' relationships only, thus reusing the graph created in
+		shortest_path().
+		Similar to shortest_path(), but more 'handmade'.
+		Warning: can take some time to run.
+		'''
+
+		r_call = '''
+		MATCH(p:Pokemon)
+		MATCH(pp:Pokemon)
+		WHERE p.name < pp.name
+		CALL gds.shortestPath.dijkstra.write('graph1', {
+				sourceNode: p,
+				targetNode: pp,
+				writeRelationshipType: 'PATH',
+				writeNodeIds: true,
+				writeCosts: true
+		})
+		YIELD relationshipsWritten
+		RETURN relationshipsWritten
+		'''
+		r_avg = '''
+		MATCH(:Pokemon)-[r:PATH]->(:Pokemon)
+		RETURN avg(r.totalCost) AS avg
+		'''
+		self.session.run(r_call)
+		res = self.session.run(r_avg)
+		self.session.run("CALL gds.graph.drop('graph1')")
+		print('Average length of the shortest path between all pairs of Pokemon: '
+				+ str(res.single()[0]))
+		r_delete = '''
+		MATCH (:Pokemon)-[r:PATH]->(:Pokemon)
+		WITH r LIMIT 10000
+		DELETE r
+		RETURN COUNT(r)
+		'''
+		deleted = self.session.run(r_delete).single()[0]
+		while deleted:
+			deleted = self.session.run(r_delete).single[0]
 
 	def run_analysis(self):
 		'''
@@ -519,6 +563,8 @@ class Neo4jAnalysis:
 		self.leiden()
 		print()
 		self.shortest_path()
+		print()
+		self.dijkstra()
 
 def print_usage():
 	print('Usage: python neo4j-queries.py <user> <password> [-r] [-t]')
