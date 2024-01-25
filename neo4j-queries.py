@@ -22,6 +22,13 @@ class Neo4jDB:
 		constraints = self.session.run('SHOW CONSTRAINTS')
 		for constraint in constraints:
 			self.session.run(f'DROP CONSTRAINT {constraint[1]}') 
+		
+		'''
+		Deletes all indexes in the database.
+		'''
+		indexes = self.session.run('SHOW INDEXES')
+		for index in indexes:
+			self.session.run(f'DROP INDEX {index[1]}')
 
 	def add_constraints(self):
 		'''
@@ -30,6 +37,13 @@ class Neo4jDB:
 
 		self.session.run('CREATE CONSTRAINT FOR (p:Pokemon) REQUIRE p.name IS UNIQUE')
 		self.session.run('CREATE CONSTRAINT FOR (p:Pokemon) REQUIRE p.pokedex_number IS UNIQUE')
+
+	def add_indexes(self):
+		'''
+		Adds indexes to the database.
+		'''
+
+		self.session.run('CREATE INDEX FOR (t:Type) ON (t.name)')
 
 	def import_data(self):
 		'''
@@ -607,6 +621,7 @@ if __name__ == '__main__':
 	ndb = Neo4jDB(uri, argv[0], argv[1])
 	ndb.clear()
 	ndb.add_constraints()
+	ndb.add_indexes()
 	ndb.import_data()
 
 	nrq = Neo4jQueries(ndb.session)
