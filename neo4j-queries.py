@@ -364,31 +364,33 @@ class Neo4jAnalysis:
 		self.session = session
 	
 	def louvain(self):
+		'''
+		Count the number of communities found by the Louvain algorithm.
+	 	'''
+		
 		r_create = '''
 		CALL gds.graph.project(
-		    'graph1',
-		    ['Ability', 'Pokemon', 'Type'],
-		    {
-		        AGAINST: {
-		            orientation: 'NATURAL'
-		        },
-		        HAS_ABILITY: {
-		            orientation: 'NATURAL'
-		        },
-		        HAS_TYPE: {
-		            orientation: 'NATURAL'
-		        }
-		    },
-		    {
-		    }
+				'graph1',
+				['Ability', 'Pokemon', 'Type'],
+				{
+						AGAINST: {
+								orientation: 'NATURAL'
+						},
+						HAS_ABILITY: {
+								orientation: 'NATURAL'
+						},
+						HAS_TYPE: {
+								orientation: 'NATURAL'
+						}
+				},
+				{
+				}
 		);
 		'''
 
 		r_call = '''
 		CALL gds.louvain.stream('graph1')
 		YIELD nodeId, communityId, intermediateCommunityIds
-		//RETURN gds.util.asNode(nodeId).name AS name, communityId
-		//ORDER BY name ASC;
 		WITH gds.util.asNode(nodeId).name AS name, communityId
 		RETURN communityId, COUNT(name) AS count
 		ORDER BY count DESC;
@@ -406,31 +408,33 @@ class Neo4jAnalysis:
 		self.session.run(r_remove)
 	
 	def leiden(self):
+		'''
+		Count the number of communities found by the Leiden algorithm.
+	 	'''
+	 
 		r_create = '''
 		CALL gds.graph.project(
-		    'graph1',
-		    ['Ability', 'Pokemon', 'Type'],
-		    {
-		        AGAINST: {
-		            orientation: 'NATURAL'
-		        },
-		        HAS_ABILITY: {
-		            orientation: 'NATURAL'
-		        },
-		        HAS_TYPE: {
-		            orientation: 'NATURAL'
-		        }
-		    },
-		    {
-		    }
+				'graph1',
+				['Ability', 'Pokemon', 'Type'],
+				{
+						AGAINST: {
+								orientation: 'UNDIRECTED'
+						},
+						HAS_ABILITY: {
+								orientation: 'UNDIRECTED'
+						},
+						HAS_TYPE: {
+								orientation: 'UNDIRECTED'
+						}
+				},
+				{
+				}
 		);
 		'''
 		
 		r_call = '''
-		CALL gds.louvain.stream('graph1')
+		CALL gds.leiden.stream('graph1')
 		YIELD nodeId, communityId, intermediateCommunityIds
-		//RETURN gds.util.asNode(nodeId).name AS name, communityId
-		//ORDER BY name ASC;
 		WITH gds.util.asNode(nodeId).name AS name, communityId
 		RETURN communityId, COUNT(name) AS count
 		ORDER BY count DESC;
