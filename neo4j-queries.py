@@ -364,7 +364,7 @@ class Neo4jAnalysis:
 		self.session = session
 	
 	def louvain(self):
-		r = '''
+		r_create = '''
 		CALL gds.graph.project(
 		    'graph1',
 		    ['Ability', 'Pokemon', 'Type'],
@@ -382,7 +382,9 @@ class Neo4jAnalysis:
 		    {
 		    }
 		);
+		'''
 
+		r_call = '''
 		CALL gds.louvain.stream('graph1')
 		YIELD nodeId, communityId, intermediateCommunityIds
 		//RETURN gds.util.asNode(nodeId).name AS name, communityId
@@ -390,15 +392,21 @@ class Neo4jAnalysis:
 		WITH gds.util.asNode(nodeId).name AS name, communityId
 		RETURN communityId, COUNT(name) AS count
 		ORDER BY count DESC;
+		'''
 
+		r_remove = '''
 		CALL gds.graph.drop('graph1', false);
 		'''
 
-		res = self.session.run(r)
+		self.session.run(r_create)
+
+		res = self.session.run(r_call)
 		print(str(res.single()[0]))
+
+		self.session.run(r_remove)
 	
 	def leiden(self):
-		r = '''
+		r_create = '''
 		CALL gds.graph.project(
 		    'graph1',
 		    ['Ability', 'Pokemon', 'Type'],
@@ -416,7 +424,9 @@ class Neo4jAnalysis:
 		    {
 		    }
 		);
-
+		'''
+		
+		r_call = '''
 		CALL gds.louvain.stream('graph1')
 		YIELD nodeId, communityId, intermediateCommunityIds
 		//RETURN gds.util.asNode(nodeId).name AS name, communityId
@@ -424,12 +434,18 @@ class Neo4jAnalysis:
 		WITH gds.util.asNode(nodeId).name AS name, communityId
 		RETURN communityId, COUNT(name) AS count
 		ORDER BY count DESC;
-
+		'''
+		
+		r_remove = '''
 		CALL gds.graph.drop('graph1', false);
 		'''
 
-		res = self.session.run(r)
+		self.session.run(r_create)
+
+		res = self.session.run(r_call)
 		print(str(res.single()[0]))
+
+		self.session.run(r_remove)
 
 	def run_analysis(self):
 		'''
