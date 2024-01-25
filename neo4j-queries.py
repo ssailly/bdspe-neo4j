@@ -16,6 +16,21 @@ class Neo4jDB:
 		'''
 		self.session.run('MATCH (n) DETACH DELETE n')
 
+		'''
+		Deletes all constraints in the database.
+		'''
+		constraints = self.session.run('SHOW CONSTRAINTS')
+		for constraint in constraints:
+			self.session.run(f'DROP CONSTRAINT {constraint[1]}') 
+
+	def add_constraints(self):
+		'''
+		Adds constraints to the database.
+		'''
+
+		self.session.run('CREATE CONSTRAINT FOR (p:Pokemon) REQUIRE p.name IS UNIQUE')
+		self.session.run('CREATE CONSTRAINT FOR (p:Pokemon) REQUIRE p.pokedex_number IS UNIQUE')
+
 	def import_data(self):
 		'''
 		Imports the data from pokemon.csv file into the database.
@@ -591,6 +606,7 @@ if __name__ == '__main__':
 	uri = 'bolt://localhost:7687'
 	ndb = Neo4jDB(uri, argv[0], argv[1])
 	ndb.clear()
+	ndb.add_constraints()
 	ndb.import_data()
 
 	nrq = Neo4jQueries(ndb.session)
