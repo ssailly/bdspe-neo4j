@@ -1,7 +1,7 @@
 from neo4j import GraphDatabase
 from sys import argv
 
-class Neo4jQuery:
+class Neo4jDB:
 	def __init__(self, uri, user, password):
 		self.driver = GraphDatabase.driver(uri, auth = (user, password))
 		self.session = self.driver.session()
@@ -84,7 +84,12 @@ class Neo4jQuery:
 		MERGE (p)-[:HAS_TYPE {first: false}]->(t2)
 		'''
 		self.session.run(r)
-	
+
+class Neo4jQueries:
+
+	def __init__(self, session):
+		self.session = session
+
 	def negative_filter(self):
 		'''
 		Counts the number of Pokemon that are not weak against Fire and not strong
@@ -327,7 +332,7 @@ class Neo4jQuery:
 		'''
 		self.session.run(r)
 
-	def run_all(self, run_topo: bool = False):
+	def run_queries(self, run_topo: bool = False):
 		'''
 		Runs all the queries.
 		'''
@@ -353,20 +358,122 @@ class Neo4jQuery:
 			print()
 			self.data_and_topo()
 
+class Neo4jAnalysis:
+	
+	def __init__(self, session):
+		self.session = session
+	
+	def louvain(self):
+		r = '''
+		CALL gds.graph.project(
+		    'graph1',
+		    ['Ability', 'Pokemon', 'Type'],
+		    {
+		        AGAINST: {
+		            orientation: 'NATURAL'
+		        },
+		        HAS_ABILITY: {
+		            orientation: 'NATURAL'
+		        },
+		        HAS_TYPE: {
+		            orientation: 'NATURAL'
+		        }
+		    },
+		    {
+		    }
+		);
+
+		CALL gds.louvain.stream('graph1')
+		YIELD nodeId, communityId, intermediateCommunityIds
+		//RETURN gds.util.asNode(nodeId).name AS name, communityId
+		//ORDER BY name ASC;
+		WITH gds.util.asNode(nodeId).name AS name, communityId
+		RETURN communityId, COUNT(name) AS count
+		ORDER BY count DESC;
+
+		CALL gds.graph.drop('graph1', false);
+		'''
+
+		res = self.session.run(r)
+		print(str(res.single()[0]))
+	
+	def leiden(self):
+		r = '''
+		CALL gds.graph.project(
+		    'graph1',
+		    ['Ability', 'Pokemon', 'Type'],
+		    {
+		        AGAINST: {
+		            orientation: 'NATURAL'
+		        },
+		        HAS_ABILITY: {
+		            orientation: 'NATURAL'
+		        },
+		        HAS_TYPE: {
+		            orientation: 'NATURAL'
+		        }
+		    },
+		    {
+		    }
+		);
+
+		CALL gds.louvain.stream('graph1')
+		YIELD nodeId, communityId, intermediateCommunityIds
+		//RETURN gds.util.asNode(nodeId).name AS name, communityId
+		//ORDER BY name ASC;
+		WITH gds.util.asNode(nodeId).name AS name, communityId
+		RETURN communityId, COUNT(name) AS count
+		ORDER BY count DESC;
+
+		CALL gds.graph.drop('graph1', false);
+		'''
+
+		res = self.session.run(r)
+		print(str(res.single()[0]))
+
+	def run_analysis(self):
+		'''
+		Runs all the queries.
+		'''
+
+		self.louvain()
+		print()
+		self.leiden()
+
+def print_usage():
+	print('Usage: python neo4j-queries.py <user> <password> [-r] [-t]')
+	print('	-r run_queries:  import data and run general queries (default)')
+	print('	-r run_analysis: import data and run analysis queries')
+	print('	-r import_only:  import data without running any queries')
+	print('	-t: run the last query (can be very long to run)')
 
 if __name__ == '__main__':
 	if len(argv) < 3:
-		print('Usage: python neo4j-queries.py <user> <password> [OPTIONS]')
-		print('OPTIONS:')
-		print('  import_only: import data without running queries')
-		print('  topo: run the last query (can be very long to run)')
+		print_usage()
 		exit(1)
+
 	argv = argv[1:]
 	options = argv[2:]
+
+	run_type = argv[argv.index('-r') + 1] if '-r' in argv else 'run_queries'
+	if run_type not in ['run_queries', 'run_analysis', 'import_only']:
+		print_usage()
+		exit(1)
+	
+	run_topo = True if '-t' in argv else False
+
 	uri = 'bolt://localhost:7687'
-	nrq = Neo4jQuery(uri, argv[0], argv[1])
-	nrq.clear()
-	nrq.import_data()
-	run_topo = True if 'topo' in options else False
-	if 'import_only' not in options: nrq.run_all(run_topo)
-	nrq.close()
+	ndb = Neo4jDB(uri, argv[0], argv[1])
+	ndb.clear()
+	ndb.import_data()
+
+	nrq = Neo4jQueries(ndb.session)
+	nra = Neo4jAnalysis(ndb.session)
+
+	if run_type != 'import_only':
+		if run_type == 'run_queries':
+			nrq.run_queries(run_topo)
+		if run_type == 'run_analysis':
+			nra.run_analysis()
+
+	ndb.close()
