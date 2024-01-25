@@ -365,7 +365,7 @@ class Neo4jAnalysis:
 	
 	def louvain(self):
 		'''
-		Count the number of communities found by the Louvain algorithm.
+		Get communities and their sizes using Louvain algorithm.
 	 	'''
 		
 		r_create = '''
@@ -403,13 +403,18 @@ class Neo4jAnalysis:
 		self.session.run(r_create)
 
 		res = self.session.run(r_call)
-		print(str(res.single()[0]))
+		print('Louvain communities:')
+		l = 0
+		for r in res:
+			print(f'Community n°{r[0]} has size {r[1]}')
+			l += 1
+		print(f'Number of communities: {l}')
 
 		self.session.run(r_remove)
 	
 	def leiden(self):
 		'''
-		Count the number of communities found by the Leiden algorithm.
+		Get communities and their sizes using Leiden algorithm.
 	 	'''
 	 
 		r_create = '''
@@ -447,9 +452,62 @@ class Neo4jAnalysis:
 		self.session.run(r_create)
 
 		res = self.session.run(r_call)
-		print(str(res.single()[0]))
+		print('Leiden communities:')
+		l = 0
+		for r in res:
+			print(f'Community n°{r[0]} has size {r[1]}')
+			l += 1
+		print(f'Number of communities: {l}')
 
 		self.session.run(r_remove)
+
+	def shortest_path(self):
+		'''
+		For all pairs of Pokemon, find the longest path between them using
+		'STRONG_AGAINST' relationships only.
+		'''
+
+		r_rel = '''
+		MATCH (p1:Pokemon)-[r:AGAINST]->(t:Type)<-[:HAS_TYPE]-(p2:Pokemon)
+		WHERE r.value IN [0.25, 0.5]
+			AND p1 <> p2
+		MERGE (p1)-[:STRONG_AGAINST]->(p2)
+	 	'''
+
+		r_proj = '''
+		CALL gds.graph.project(
+			'graph1',
+			['Pokemon'],
+			{
+				STRONG_AGAINST: {
+					orientation: 'NATURAL'
+				}
+			}
+		)
+		'''
+
+		r_call = '''
+		CALL gds.allShortestPaths.stream('graph1')
+		YIELD sourceNodeId, targetNodeId, distance
+		WITH sourceNodeId, targetNodeId, distance
+		WHERE gds.util.isFinite(distance) = true
+		WITH gds.util.asNode(sourceNodeId) AS source,
+			gds.util.asNode(targetNodeId) AS target,
+			distance
+			WHERE source <> target
+		RETURN source.name AS source, target.name AS target, distance
+		ORDER BY distance DESC
+	 	'''
+		
+		self.session.run(r_rel)
+		self.session.run(r_proj)
+		res = self.session.run(r_call)
+		limit = 10
+		print('Longest paths between Pokemon:')
+		for r in res:
+			print(f'Longest path between {r[0]} and {r[1]}: {r[2]}')
+			limit -= 1	
+			if not limit: break
 
 	def run_analysis(self):
 		'''
@@ -459,6 +517,8 @@ class Neo4jAnalysis:
 		self.louvain()
 		print()
 		self.leiden()
+		print()
+		self.shortest_path()
 
 def print_usage():
 	print('Usage: python neo4j-queries.py <user> <password> [-r] [-t]')
