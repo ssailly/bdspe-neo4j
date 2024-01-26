@@ -300,12 +300,8 @@ class Neo4jQueries:
 		for r in res: print(f'{r[0]} - {r[1]} (type {r[2]})')
 
 	# TODO: check plans of post_union_processing(_variant)
-	def post_union_processing(self):
-		'''
-		Get the 10 heaviest and lightest Pokemon and their types.
-	 	'''
-		
-		r = '''
+	def post_union_processing_request(self):
+		return '''
 		CALL {
 				MATCH (p:Pokemon)
 				WHERE p.weight_kg IS NOT NULL
@@ -323,16 +319,9 @@ class Neo4jQueries:
 		RETURN p.name AS name, p.weight_kg AS weight_kg, collect(t.name) AS types
 		ORDER BY weight_kg, name
 	 	'''
-		res = self.session.run(r)
-		print('7. 10 heaviest and lightest Pokemon and their types:')
-		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
-
-	def post_union_processing_variant(self):
-		'''
-		Same as post_union_processing, but with a twist.
-	 	'''
-		
-		r = '''
+	
+	def post_union_processing_variant_request(self):
+		return '''
 		CALL {
 				MATCH (p:Pokemon)-[:HAS_TYPE]->(t:Type)
 				WHERE p.weight_kg IS NOT NULL
@@ -349,9 +338,49 @@ class Neo4jQueries:
 		RETURN p.name AS name, p.weight_kg AS weight_kg, types
 		ORDER BY weight_kg, name
 		'''
+	
+	def post_union_processing(self):
+		'''
+		Get the 10 heaviest and lightest Pokemon and their types.
+	 	'''
+		
+		r = self.post_union_processing_request()
+		res = self.session.run(r)
+		print('7. 10 heaviest and lightest Pokemon and their types:')
+		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
+
+	def post_union_processing_variant(self):
+		'''
+		Same as post_union_processing, but with a twist.
+	 	'''
+		
+		r = self.post_union_processing_variant_request()
 		res = self.session.run(r)
 		print('7b. 10 heaviest and lightest Pokemon and their types:')
 		for r in res: print(f'{r[0]} ({r[1]} kg): {r[2]}')
+	
+	def post_union_processing_compare(self):
+		'''
+		Compares if results of post_union_processing and post_union_processing_variant are equal.
+		'''
+
+		r1 = self.post_union_processing_request()
+		r2 = self.post_union_processing_variant_request()
+		list1 = self.session.run(r1).data()
+		list2 = self.session.run(r2).data()
+		print('7c. Comparing results of post_union_processing and post_union_processing_variant:')
+		if len(list1) != len(list2):
+			raise Exception('Results are not equal')
+		else :
+			tupleize = lambda obj: tuple(tupleize(item) if isinstance(item, list) else item for item in obj)
+
+			set1 = {tupleize(obj.values()) for obj in list1}
+			set2 = {tupleize(obj.values()) for obj in list2}
+
+			if set1 != set2:
+				raise Exception('Results are not equal')
+			else:
+				print('Results are equal')
 
 	def data_and_topo(self):
 		'''
@@ -412,6 +441,8 @@ class Neo4jQueries:
 		self.post_union_processing()
 		print()
 		self.post_union_processing_variant()
+		print()
+		self.post_union_processing_compare()
 		if run_topo:
 			print()
 			self.data_and_topo()
