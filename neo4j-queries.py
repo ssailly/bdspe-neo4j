@@ -116,8 +116,9 @@ class Neo4jDB:
 
 class Neo4jQueries:
 
-	def __init__(self, session):
-		self.session = session
+	def __init__(self, driver):
+		self.driver = driver
+		self.session = driver.session()
 
 	def negative_filter(self):
 		'''
@@ -417,6 +418,28 @@ class Neo4jQueries:
 		DELETE r
 		'''
 		self.session.run(r)
+	
+	def collect_unwind_ep(self):
+		'''
+		Execution plan of collect_unwind.
+		'''
+
+		r = 'EXPLAIN' + self.collect_unwind_request()
+
+		_, summary, _ = self.driver.execute_query(r)
+		print('9a. EXPLAIN of collect_unwind:')
+		print(summary.plan['args']['string-representation'])
+	
+	def collect_unwind_variant_ep(self):
+		'''
+		Execution plan of collect_unwind_variant.
+		'''
+		
+		r = 'EXPLAIN' + self.collect_unwind_variant_request()
+
+		_, summary, _ = self.driver.execute_query(r)
+		print('9b. EXPLAIN of collect_unwind_variant:')
+		print(summary.plan['args']['string-representation'])
 
 	def functions_dict(self):
 		'''
@@ -435,7 +458,9 @@ class Neo4jQueries:
 			'7' : self.post_union_processing,
 			'7b': self.post_union_processing_variant,
 			'7c': self.post_union_processing_compare,
-			'8' : self.data_and_topo
+			'8' : self.data_and_topo,
+			'9a': self.collect_unwind_ep,
+			'9b': self.collect_unwind_variant_ep 
 		}
 
 	def run_queries(self, run_topo: bool = False):
@@ -664,7 +689,7 @@ def print_usage():
 	print('	-r run_analysis: import data and run analysis queries')
 	print('	-r import_only:  import data without running any queries')
 	print('	-k [number]: choose the query to run ')
-	print('		for run_queries: (1, 2, 3, 3b, 3c, 4, 5, 6, 7b, 7c, 8; default: all)')
+	print('		for run_queries: (1, 2, 3, 3b, 3c, 4, 5, 6, 7b, 7c, 8, 9a, 9b; default: all)')
 	print('	-t: run the last query (can be very long to run)')
 
 if __name__ == '__main__':
@@ -695,7 +720,7 @@ if __name__ == '__main__':
 	ndb.add_indexes()
 	ndb.import_data()
 
-	nrq = Neo4jQueries(ndb.session)
+	nrq = Neo4jQueries(ndb.driver)
 	nra = Neo4jAnalysis(ndb.session)
 
 	if run_type != 'import_only':
@@ -703,11 +728,7 @@ if __name__ == '__main__':
 			if query_number == None:
 				nrq.run_queries(run_topo)
 			else :
-				try:
-					nrq.functions_dict()[query_number]()
-				except: 
-					print('Invalid query number\n')
-					print_usage()
+				nrq.functions_dict()[query_number]()
 		if run_type == 'run_analysis':
 			nra.run_analysis()
 
