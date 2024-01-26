@@ -418,35 +418,35 @@ class Neo4jQueries:
 		'''
 		self.session.run(r)
 
+	def functions_dict(self):
+		'''
+		Get dictionary of functions in program.
+		'''
+
+		return {
+			'1' : self.negative_filter,
+			'2' : self.optional_match,
+			'3' : self.collect_unwind,
+			'3b': self.collect_unwind_variant,
+			'3c': self.collect_unwind_compare,
+			'4' : self.reduce,
+			'5' : self.with_filter_aggregate,
+			'6' : self.predicate_function,
+			'7' : self.post_union_processing,
+			'7b': self.post_union_processing_variant,
+			'7c': self.post_union_processing_compare,
+			'8' : self.data_and_topo
+		}
+
 	def run_queries(self, run_topo: bool = False):
 		'''
 		Runs all the queries.
 		'''
 
-		self.negative_filter()
-		print()
-		self.optional_match()
-		print()
-		self.collect_unwind()
-		print()
-		self.collect_unwind_variant()
-		print()
-		self.collect_unwind_compare()
-		print()
-		self.reduce()
-		print()
-		self.with_filter_aggregate()
-		print()
-		self.predicate_function()
-		print()
-		self.post_union_processing()
-		print()
-		self.post_union_processing_variant()
-		print()
-		self.post_union_processing_compare()
-		if run_topo:
+		for key, value in self.functions_dict().items():
+			if key == '8' and not run_topo: break
+			value()
 			print()
-			self.data_and_topo()
 
 class Neo4jAnalysis:
 	
@@ -657,10 +657,14 @@ class Neo4jAnalysis:
 		self.dijkstra()
 
 def print_usage():
-	print('Usage: python neo4j-queries.py <user> <password> [-r] [-t]')
-	print('	-r run_queries:  import data and run general queries (default)')
+	print('Usage: python neo4j-queries.py <user> <password> [OPTIONS]')
+	print('	OPTIONS:')
+	print('	-h: print this help')
+	print('	-r run_queries:	 import data and run general queries (default)')
 	print('	-r run_analysis: import data and run analysis queries')
 	print('	-r import_only:  import data without running any queries')
+	print('	-k [number]: choose the query to run ')
+	print('		for run_queries: (1, 2, 3, 3b, 3c, 4, 5, 6, 7b, 7c, 8; default: all)')
 	print('	-t: run the last query (can be very long to run)')
 
 if __name__ == '__main__':
@@ -671,10 +675,16 @@ if __name__ == '__main__':
 	argv = argv[1:]
 	options = argv[2:]
 
+	if '-h' in options:
+		print_usage()
+		exit(0)
+
 	run_type = argv[argv.index('-r') + 1] if '-r' in argv else 'run_queries'
 	if run_type not in ['run_queries', 'run_analysis', 'import_only']:
 		print_usage()
 		exit(1)
+	
+	query_number = argv[argv.index('-k') + 1] if '-k' in argv else None
 	
 	run_topo = True if '-t' in argv else False
 
@@ -690,7 +700,14 @@ if __name__ == '__main__':
 
 	if run_type != 'import_only':
 		if run_type == 'run_queries':
-			nrq.run_queries(run_topo)
+			if query_number == None:
+				nrq.run_queries(run_topo)
+			else :
+				try:
+					nrq.functions_dict()[query_number]()
+				except: 
+					print('Invalid query number\n')
+					print_usage()
 		if run_type == 'run_analysis':
 			nra.run_analysis()
 
