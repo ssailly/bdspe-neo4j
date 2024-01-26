@@ -429,7 +429,7 @@ class Neo4jQueries:
 
 	def negative_filter_wid(self):
 		'''
-		Execution plan of optional_match without index.
+		Execution plan of negative_filter without index.
 		'''
 		
 		r = '''EXPLAIN
@@ -440,12 +440,12 @@ class Neo4jQueries:
 		'''
 		
 		_, summary, _ = self.driver.execute_query(r)
-		print('9a. EXPLAIN of optional_match without index:')
+		print('9a. EXPLAIN of negative_filter without index:')
 		print(summary.plan['args']['string-representation'])
 	
 	def negative_filter_id(self):
 		'''
-		Execution plan of optional_match with index.
+		Execution plan of negative_filter with index.
 		'''
 
 		self.session.run('CREATE INDEX FOR (r:AGAINST) ON (r.value)')
@@ -458,7 +458,7 @@ class Neo4jQueries:
 		'''
 
 		_, summary, _ = self.driver.execute_query(r)
-		print('9b. EXPLAIN of optional_match with index:')
+		print('9b. EXPLAIN of negative_filter with index:')
 		print(summary.plan['args']['string-representation'])
 		
 		indexes = self.session.run('SHOW INDEXES')
