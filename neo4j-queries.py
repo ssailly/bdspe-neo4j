@@ -427,25 +427,36 @@ class Neo4jQueries:
 		'''
 		self.session.run(r)
 
-	def optional_match_wid(self):
+	def negative_filter_wid(self):
 		'''
 		Execution plan of optional_match without index.
 		'''
 		
-		r = 'EXPLAIN' + self.optional_match_request()
+		r = '''EXPLAIN
+		MATCH (p:Pokemon)-[r]->(m)
+		WHERE NOT (p)-[:AGAINST {value: 2}]->(:Type {name: 'fire'})
+			AND NOT (p)-[:AGAINST {value: 0.5}]->(:Type {name: 'water'})
+		RETURN count(distinct p)
+		'''
 		
 		_, summary, _ = self.driver.execute_query(r)
 		print('9a. EXPLAIN of optional_match without index:')
 		print(summary.plan['args']['string-representation'])
 	
-	def optional_match_id(self):
+	def negative_filter_id(self):
 		'''
 		Execution plan of optional_match with index.
 		'''
 
 		self.session.run('CREATE INDEX FOR (r:AGAINST) ON (r.value)')
 
-		r = 'EXPLAIN' + self.optional_match_request()
+		r = '''EXPLAIN
+		MATCH (p:Pokemon)-[r]->(m)
+		WHERE NOT (p)-[:AGAINST {value: 2}]->(:Type {name: 'fire'})
+			AND NOT (p)-[:AGAINST {value: 0.5}]->(:Type {name: 'water'})
+		RETURN count(distinct p)
+		'''
+
 		_, summary, _ = self.driver.execute_query(r)
 		print('9b. EXPLAIN of optional_match with index:')
 		print(summary.plan['args']['string-representation'])
@@ -517,8 +528,8 @@ class Neo4jQueries:
 			'7b':  self.post_union_processing_variant,
 			'7c':  self.post_union_processing_compare,
 			'8' :  self.data_and_topo,
-			'9a': self.optional_match_wid,  
-			'9b': self.optional_match_id,   
+			'9a': self.negative_filter_wid,  
+			'9b': self.negative_filter_id,   
 			'10a': self.collect_unwind_ep,
 			'10b': self.collect_unwind_variant_ep,
 			'11a': self.post_union_processing_ep,
