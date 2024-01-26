@@ -411,12 +411,15 @@ class Neo4jQueries:
 		WHERE none(n IN i1 WHERE exists((n)-[:STRONG_AGAINST]->(p1)))
 				AND exists((p2)-[:STRONG_AGAINST]->(p1))
 				AND NOT exists((p1)-[:STRONG_AGAINST]->(p2))
-		RETURN path
+		RETURN [x in nodes(path) | x.name]
+		
 		'''
 		res = self.session.run(r)
 		print('8. Paths such as there is a loop of 3 or 4 Pokemon strong against'
 					+ ' each other, and where the first is not strong against the last:')
-		for r in res: print(r[0])
+		for r in res: 
+			print(r[0])
+		
 		# clean up
 		r = '''
 		MATCH (:Pokemon)-[r:STRONG_AGAINST]->(:Pokemon)
