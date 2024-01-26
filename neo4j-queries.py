@@ -157,13 +157,8 @@ class Neo4jQueries:
 			print(f'{r[0]}{tab1}{r[1]}' + (f'{tab2}{r[2]}' if r[1] != None else ''))
 
 	# TODO: check plans of collect_unwind and collect_unwind_variant
-	def collect_unwind(self):
-		'''
-		Find the abilities of Pokemon (very) weak against Psychic type, and count
-		how many of them have each ability.
-	 	'''
-
-		r = '''
+	def collect_unwind_request(self):
+		return '''
 		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'psychic'})
 		WHERE r.value IN [2, 4]
 		WITH p, COLLECT {
@@ -174,6 +169,22 @@ class Neo4jQueries:
 		RETURN ability, COUNT(distinct p)
 		ORDER BY ability
 		'''
+	
+	def collect_unwind_variant_request(self):
+		return '''
+		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'psychic'})
+		WHERE r.value IN [2, 4]
+		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
+		RETURN a.name, COUNT(distinct p)
+		'''
+
+	def collect_unwind(self):
+		'''
+		Find the abilities of Pokemon (very) weak against Psychic type, and count
+		how many of them have each ability.
+	 	'''
+
+		r = self.collect_unwind_request()
 		res = self.session.run(r)
 		print('3. Abilities of Pokemon (very) weak against Psychic type:')
 		for r in res: print(f'{r[0]}: {r[1]}')
@@ -183,16 +194,32 @@ class Neo4jQueries:
 		Same as collect_unwind, but without using COLLECT and UNWIND.
 		'''
 		
-		r = '''
-		MATCH (p:Pokemon)-[r:AGAINST]->(t:Type {name: 'psychic'})
-		WHERE r.value IN [2, 4]
-		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
-		RETURN a.name, COUNT(distinct p)
-		'''
+		r = self.collect_unwind_variant_request()
 		res = self.session.run(r)
 		print('3b. Same as 3., but without using COLLECT and UNWIND:')
 		for r in res: print(f'{r[0]}: {r[1]}')
+	
+	def collect_unwind_compare(self):
+		'''
+		Compares if results of collect_unwind and collect_unwind_variant are equal.
+		'''
 
+		r1 = self.collect_unwind_request()
+		r2 = self.collect_unwind_variant_request()
+		list1 = self.session.run(r1).data()
+		list2 = self.session.run(r2).data()
+		print('3c. Comparing results of collect_unwind and collect_unwind_variant:')
+		if len(list1) != len(list2):
+			raise Exception('Results are not equal')
+		else :
+			set1 = {tuple(obj.values()) for obj in list1}
+			set2 = {tuple(obj.values()) for obj in list2}
+
+			if set1 != set2:
+				raise Exception('Results are not equal')
+			else:
+				print('Results are equal')
+		
 	def reduce(self):
 		'''
 		For each ability, sum the attack of all Pokemon (very) weak against Fire,
@@ -373,6 +400,8 @@ class Neo4jQueries:
 		self.collect_unwind()
 		print()
 		self.collect_unwind_variant()
+		print()
+		self.collect_unwind_compare()
 		print()
 		self.reduce()
 		print()
