@@ -176,6 +176,7 @@ class Neo4jQueries:
 		WHERE r.value IN [2, 4]
 		MATCH (p)-[:HAS_ABILITY]->(a:Ability)
 		RETURN a.name, COUNT(distinct p)
+		ORDER BY a.name
 		'''
 
 	def collect_unwind(self):
