@@ -136,26 +136,31 @@ class Neo4jQueries:
 		print('1. Number of Pokemon not weak against Fire and not strong against'
 					+ ' Water: ' + str(res.single()[0]))
 	
-	def optional_match(self):
-		'''
-		Get resistences of Psychic type Pokemon, apart from against Psychic and
-		Fighting (well-known resistences for Psychic Pokemon), if any.
-		'''
-
-		print('2. Psychic type Pokemon resistences:')
-		r = '''
+	def optional_match_request(self):
+		return '''
 		MATCH (p:Pokemon)-[:HAS_TYPE {first: true}]->(:Type {name: 'psychic'})
 		OPTIONAL MATCH (p)-[r:AGAINST]->(t:Type)
 		WHERE NOT t.name IN ['psychic', 'fighting']
 				AND r.value IN [0.5, 0.25]
 		RETURN p.name, t.name, r.value
 		'''
+
+	def optional_match(self):
+		'''
+		Get resistences of Psychic type Pokemon, apart from against Psychic and
+		Fighting (well-known resistences for Psychic Pokemon), if any.
+		'''
+
+		r = self.optional_match_request()
+
+		print('2. Psychic type Pokemon resistences:')
 		res = self.session.run(r)
 		print('Pokemon\t\tType\t\tValue')
 		for r in res:
 			tab1 = '\t\t' if len(r[0]) < 8 else '\t'
 			tab2 = '\t\t' if (r[1] != None and len(r[1]) < 8) else '\t'
 			print(f'{r[0]}{tab1}{r[1]}' + (f'{tab2}{r[2]}' if r[1] != None else ''))
+		
 
 	# TODO: check plans of collect_unwind and collect_unwind_variant
 	def collect_unwind_request(self):
@@ -418,7 +423,35 @@ class Neo4jQueries:
 		DELETE r
 		'''
 		self.session.run(r)
+
+	def optional_match_wid(self):
+		'''
+		Execution plan of optional_match without index.
+		'''
+		
+		r = 'EXPLAIN' + self.optional_match_request()
+		
+		_, summary, _ = self.driver.execute_query(r)
+		print('9a. EXPLAIN of optional_match without index:')
+		print(summary.plan['args']['string-representation'])
 	
+	def optional_match_id(self):
+		'''
+		Execution plan of optional_match with index.
+		'''
+
+		self.session.run('CREATE INDEX FOR (r:AGAINST) ON (r.value)')
+
+		r = 'EXPLAIN' + self.optional_match_request()
+		_, summary, _ = self.driver.execute_query(r)
+		print('9b. EXPLAIN of optional_match with index:')
+		print(summary.plan['args']['string-representation'])
+		
+		indexes = self.session.run('SHOW INDEXES')
+		for index in indexes:
+			if index["labelsOrTypes"][0] == "AGAINST" and index["properties"][0] == "value":
+				self.session.run(f'DROP INDEX {index["name"]}')
+		
 	def collect_unwind_ep(self):
 		'''
 		Execution plan of collect_unwind.
@@ -427,7 +460,7 @@ class Neo4jQueries:
 		r = 'EXPLAIN' + self.collect_unwind_request()
 
 		_, summary, _ = self.driver.execute_query(r)
-		print('9a. EXPLAIN of collect_unwind:')
+		print('10a. EXPLAIN of collect_unwind:')
 		print(summary.plan['args']['string-representation'])
 	
 	def collect_unwind_variant_ep(self):
@@ -438,7 +471,29 @@ class Neo4jQueries:
 		r = 'EXPLAIN' + self.collect_unwind_variant_request()
 
 		_, summary, _ = self.driver.execute_query(r)
-		print('9b. EXPLAIN of collect_unwind_variant:')
+		print('10b. EXPLAIN of collect_unwind_variant:')
+		print(summary.plan['args']['string-representation'])
+	
+	def post_union_processing_ep(self):
+		'''
+		Execution plan of post_union_processing.
+		'''
+
+		r = 'EXPLAIN' + self.post_union_processing_request()
+
+		_, summary, _ = self.driver.execute_query(r)
+		print('11a. EXPLAIN of post_union_processing:')
+		print(summary.plan['args']['string-representation'])
+	
+	def post_union_processing_variant_ep(self):
+		'''
+		Execution plan of post_union_processing_variant.
+		'''
+
+		r = 'EXPLAIN' + self.post_union_processing_variant_request()
+
+		_, summary, _ = self.driver.execute_query(r)
+		print('11b. EXPLAIN of post_union_processing_variant:')
 		print(summary.plan['args']['string-representation'])
 
 	def functions_dict(self):
@@ -447,21 +502,26 @@ class Neo4jQueries:
 		'''
 
 		return {
-			'1' : self.negative_filter,
-			'2' : self.optional_match,
-			'3' : self.collect_unwind,
-			'3b': self.collect_unwind_variant,
-			'3c': self.collect_unwind_compare,
-			'4' : self.reduce,
-			'5' : self.with_filter_aggregate,
-			'6' : self.predicate_function,
-			'7' : self.post_union_processing,
-			'7b': self.post_union_processing_variant,
-			'7c': self.post_union_processing_compare,
-			'8' : self.data_and_topo,
-			'9a': self.collect_unwind_ep,
-			'9b': self.collect_unwind_variant_ep 
+			'1' :  self.negative_filter,
+			'2' :  self.optional_match,
+			'3' :  self.collect_unwind,
+			'3b':  self.collect_unwind_variant,
+			'3c':  self.collect_unwind_compare,
+			'4' :  self.reduce,
+			'5' :  self.with_filter_aggregate,
+			'6' :  self.predicate_function,
+			'7' :  self.post_union_processing,
+			'7b':  self.post_union_processing_variant,
+			'7c':  self.post_union_processing_compare,
+			'8' :  self.data_and_topo,
+			'9a': self.optional_match_wid,  
+			'9b': self.optional_match_id,   
+			'10a': self.collect_unwind_ep,
+			'10b': self.collect_unwind_variant_ep,
+			'11a': self.post_union_processing_ep,
+			'11b': self.post_union_processing_variant_ep
 		}
+		
 
 	def run_queries(self, run_topo: bool = False):
 		'''
@@ -689,7 +749,7 @@ def print_usage():
 	print('	-r run_analysis: import data and run analysis queries')
 	print('	-r import_only:  import data without running any queries')
 	print('	-k [number]: choose the query to run ')
-	print('		for run_queries: (1, 2, 3, 3b, 3c, 4, 5, 6, 7b, 7c, 8, 9a, 9b; default: all)')
+	print('		for run_queries: (1, 2, 3, 3b, 3c, 4, 5, 6, 7b, 7c, 8, 9a, 9b, 10a, 10b, 11a, 11b; default: all)')
 	print('	-t: run the last query (can be very long to run)')
 
 if __name__ == '__main__':
@@ -731,5 +791,4 @@ if __name__ == '__main__':
 				nrq.functions_dict()[query_number]()
 		if run_type == 'run_analysis':
 			nra.run_analysis()
-
 	ndb.close()
