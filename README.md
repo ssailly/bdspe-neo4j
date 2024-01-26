@@ -4,10 +4,15 @@ Nicolas Graff & Steven Sailly
 
 ## Dependencies
 
+The project has been tested using Python 3.10.12.
+
 * Neo4j Python Driver
 * Psycopg3
 
 Dependencies can be installed running `pip install -r requirements`.
+
+For running **analysis queries** on Neo4j, the `graph-data-science` plugin is
+required.
 
 ## Usage
 
